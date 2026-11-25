@@ -6,6 +6,19 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.3] — 2026-11-25
+
+### Modifié
+- **« Temps de filtration minimum » devient « Durée minimale de la plage » et passe du menu Filtration au menu Hivernage.** Ce réglage n'a jamais eu qu'un seul consommateur, la durée calculée en hivernage ; il était d'ailleurs déclaré dans le bloc `hivernage` du YAML d'origine, et c'est le passage au Config Flow qui l'a rangé par erreur dans le menu Filtration. Il y annonçait un « plancher quotidien » que le mode Saison n'applique nulle part, tout en déplaçant à l'insu de l'utilisateur le plancher de son hivernage : porter ce minimum à 6 h pour la saison — sans effet — faisait filtrer 6 h chaque nuit d'hivernage. La clé s'appelle désormais `tempsDeFiltrationMinimumHivernage`, avec les libellés servis en français et en anglais.
+- **La valeur déjà enregistrée est reprise telle quelle.** Une installation qui avait porté ce minimum à 6 h garde un plancher d'hivernage de 6 h : le contrôleur lit la nouvelle clé, puis à défaut l'ancienne, puis `3`. Le formulaire s'ouvre donc sur le plancher réellement appliqué, et l'ancienne clé n'est retirée des options qu'à la validation de l'écran Hivernage, pour que deux réglages de même sens ne puissent pas diverger. Aucune installation ne change de comportement sans action de son propriétaire.
+
+### Documentation
+- **Le README annonçait un décalage de 2 h avant le lever du soleil qui n'a jamais existé dans le code.** Avant que la répartition d'hivernage devienne configurable (janvier 2024), le découpage était figé à `2/3 ↔ 1/3` : au plancher de 3 h, la plage allait de 2 h avant le lever du soleil à 1 h après, ce que le README de 2023 décrivait d'ailleurs complètement. La répartition est depuis un réglage, son défaut a été posé à `1/1 ↔` — toute la filtration avant le pivot, la plage se terminant au lever du soleil — et la documentation n'a pas suivi : les réécritures successives ont gardé le « 2 h avant » en laissant tomber le « 1 h après », transformant la conséquence d'une répartition en règle générale. La section « Mode Hivernage » décrit maintenant la mécanique réelle — pivot au lever du soleil ou à l'heure fixe, position de la plage entièrement déterminée par la répartition — avec l'effet de chaque répartition et un relevé de production en exemple. Le décalage n'est pas réimplémenté : il ferait doublon avec la répartition `2/3 ↔ 1/3`, qui le reproduit exactement.
+- Le README précise que le mode Saison n'applique aucune durée plancher : la méthode température / 2 n'a pas de borne basse, et la méthode courbe se contente de calculer sur 10 °C au minimum.
+
+### Ajouté
+- Tests : cinq cas dans `tests/test_hivernage.py` pour le plancher et la reprise de l'ancienne clé (réglage dédié seul, dédié prioritaire sur l'ancien, ancienne clé reprise à 6 h, défaut à 3 h, durée plus longue non rognée), et cinq dans `tests/test_options_flow.py` pour le trajet du formulaire (champ présent au menu Hivernage, absent du menu Filtration, pré-rempli avec la valeur héritée, ancienne clé retirée à la validation, libellés présents dans les trois fichiers).
+
 ## [0.1.2] — 2026-11-11
 
 ### Corrigé

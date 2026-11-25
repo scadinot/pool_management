@@ -31,7 +31,7 @@ def mock_utils_controller(mock_hass, mock_pool_config):
     # Set default coefficients
     controller.coefficientAjustement = 1.0
     controller.coefficientAjustementHivernage = 1.0
-    controller.tempsDeFiltrationMinimum = 3.0  # 3 hours minimum
+    controller.tempsDeFiltrationMinimumHivernage = 3.0  # 3 hours minimum
 
     return controller
 
@@ -301,7 +301,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
 
     def test_enforces_minimum_time(self, mock_utils_controller):
         """Test calculation enforces minimum filtration time."""
-        mock_utils_controller.tempsDeFiltrationMinimum = 3.0
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 3.0
 
         result = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(6.0)
@@ -312,7 +312,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
 
     def test_minimum_does_not_apply_when_above(self, mock_utils_controller):
         """Test minimum time doesn't apply when calculated time is higher."""
-        mock_utils_controller.tempsDeFiltrationMinimum = 3.0
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 3.0
 
         result = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(15.0)
@@ -323,7 +323,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
 
     def test_handles_very_low_temperature(self, mock_utils_controller):
         """Test calculation handles very low temperatures."""
-        mock_utils_controller.tempsDeFiltrationMinimum = 3.0
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 3.0
 
         result = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(3.0)
@@ -335,7 +335,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
     def test_coefficient_affects_minimum_check(self, mock_utils_controller):
         """Test coefficient is applied before minimum check."""
         mock_utils_controller.coefficientAjustementHivernage = 2.0
-        mock_utils_controller.tempsDeFiltrationMinimum = 3.0
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 3.0
 
         result = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(6.0)
@@ -346,7 +346,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
 
     def test_increases_linearly_with_temperature(self, mock_utils_controller):
         """Test filtration time increases linearly with temperature (above minimum)."""
-        mock_utils_controller.tempsDeFiltrationMinimum = 0.0  # Disable minimum
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 0.0  # Disable minimum
 
         result_15 = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(15.0)
@@ -458,7 +458,7 @@ class TestUtilsIntegration:
     def test_hivernage_minimum_with_zero_coefficient(self, mock_utils_controller):
         """Test hivernage method respects minimum even with zero coefficient."""
         mock_utils_controller.coefficientAjustementHivernage = 0.0
-        mock_utils_controller.tempsDeFiltrationMinimum = 3.0
+        mock_utils_controller.tempsDeFiltrationMinimumHivernage = 3.0
 
         result = (
             mock_utils_controller.calculateTimeFiltrationWithTemperatureHivernage(20.0)

@@ -129,7 +129,18 @@ class PoolController(
         self.sondeLocalTechnique = config.get("sondeLocalTechnique", False)
         self.sondeLocalTechniquePause = config.get("sondeLocalTechniquePause", 0)
         self.traitementHivernage = config.get("traitementHivernage", False)
-        self.tempsDeFiltrationMinimum = config.get("tempsDeFiltrationMinimum", 3)
+        # Plancher de la plage d'hivernage. Le réglage s'est longtemps appelé
+        # « tempsDeFiltrationMinimum » et siégeait dans le menu Filtration,
+        # où son libellé annonçait un plancher saisonnier ; la saison n'en a
+        # jamais appliqué aucun, et ce réglage n'a jamais eu qu'un seul
+        # consommateur, la durée calculée en hivernage. L'ancienne clé est
+        # reprise telle quelle : une installation qui avait porté son
+        # plancher à 6 h garde un plancher de 6 h, le changement de nom ne
+        # ramène personne à 3 h sans le dire.
+        self.tempsDeFiltrationMinimumHivernage = config.get(
+            "tempsDeFiltrationMinimumHivernage",
+            config.get("tempsDeFiltrationMinimum", 3),
+        )
         self.distributionDatePivotHivernage = _validate_distribution(
             config.get("distributionDatePivotHivernage", 4),
             "distributionDatePivotHivernage",

@@ -59,8 +59,7 @@
           "coefficientAjustement": "Adjustment coefficient",
           "datePivot": "Pivot time",
           "pausePivot": "Pause duration (minutes)",
-          "distributionDatePivot": "Distribution around pivot",
-          "tempsDeFiltrationMinimum": "Minimum filtration time (hours)"
+          "distributionDatePivot": "Distribution around pivot"
         }
       },
       "hivernage": {
@@ -68,6 +67,7 @@
         "data": {
           "traitementHivernage": "Enable treatment in winter mode",
           "coefficientAjustementHivernage": "Winter adjustment coefficient",
+          "tempsDeFiltrationMinimumHivernage": "Winter minimum filtration time (hours)",
           "distributionDatePivotHivernage": "Winter pivot distribution",
           "choixHeureFiltrationHivernage": "Winter filtration time choice",
           "datePivotHivernage": "Winter pivot time",
