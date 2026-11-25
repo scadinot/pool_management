@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from math import isfinite
 from typing import Any, Optional
 
 from homeassistant.config_entries import ConfigEntry
@@ -174,9 +175,16 @@ def _validate_nombre(
 
     try:
         nombre = float(value)
-        if isinstance(default, int):
-            nombre = round(nombre)
     except (TypeError, ValueError, OverflowError):
+        nombre = None
+
+    # ``min(max(nan, 0.0), 5.0)`` rend encore ``nan`` : une valeur non
+    # finie traverserait le bornage. L'ancien champ d'hystérésis était un
+    # ``vol.Coerce(float)``, qui acceptait la chaîne « nan », et une
+    # hystérésis ``nan`` rend toujours fausse la comparaison qui arrête la
+    # sécurité hors-gel : la marche forcée, une fois déclenchée, ne
+    # s'arrêterait plus même par temps doux.
+    if nombre is None or not isfinite(nombre):
         _LOGGER.warning(
             "%s illisible (%s), utilisation de la valeur par défaut %s",
             name,
@@ -184,6 +192,9 @@ def _validate_nombre(
             default,
         )
         return default
+
+    if isinstance(default, int):
+        nombre = round(nombre)
 
     borne = min(max(nombre, minimum), maximum)
 

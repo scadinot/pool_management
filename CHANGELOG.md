@@ -6,6 +6,17 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.6] — 2026-11-25
+
+Deux défauts du bornage introduit en 0.1.5, relevés en revue.
+
+### Corrigé
+- **Une hystérésis `nan` traversait le bornage.** `min(max(nan, 0.0), 5.0)` rend encore `nan` : la valeur n'était donc pas réellement bornée, et l'ancien champ — un `vol.Coerce(float)` — acceptait la chaîne « nan ». Or une hystérésis `nan` rend toujours fausse la comparaison qui arrête la sécurité hors-gel : la marche forcée, une fois déclenchée, ne s'arrêtait plus, même par temps doux. Les valeurs non finies — `nan`, `inf`, `-inf` — sont écartées avant le bornage et retombent sur le défaut, avec un avertissement au journal.
+- **Le panneau latéral affichait les durées brutes.** `frontend.py` lit « Durée lavage » et « Durée rinçage » directement dans la configuration, sans passer par le contrôleur : un ancien `lavageDuree = 500` faisait annoncer 500 minutes pour un cycle que le contrôleur ramène à 60, et un `rincageDuree` négatif annonçait un rinçage que le contrôleur saute. Les deux durées transmises au panneau viennent désormais du contrôleur, qui les a bornées.
+
+### Ajouté
+- Deux tests : une valeur non finie héritée retombe sur le défaut, pour un champ flottant comme pour un champ entier ; et le panneau reçoit bien les durées du contrôleur et non la configuration brute.
+
 ## [0.1.5] — 2026-11-25
 
 ### Corrigé
