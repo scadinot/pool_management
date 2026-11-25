@@ -51,7 +51,7 @@ def mock_hivernage_controller(mock_hass, mock_pool_config):
     controller.choixHeureFiltrationHivernage = 1  # Lever soleil
     controller.datePivotHivernage = "06:00"
     controller.distributionDatePivotHivernage = 2  # 1/3 <> 2/3
-    controller.tempsDeFiltrationMinimum = 3
+    controller.tempsDeFiltrationMinimumHivernage = 3
     controller.coefficientAjustementHivernage = 1.0
     controller.temperatureSecurite = 0
     controller.temperatureHysteresis = 0.5
@@ -61,6 +61,29 @@ def mock_hivernage_controller(mock_hass, mock_pool_config):
     controller.disableMarcheForcee = False
 
     return controller
+
+
+def _controleur_hivernage(config_surcharges=None, cles_retirees=()):
+    """Construit un vrai contrôleur à partir d'une configuration.
+
+    Le double de Home Assistant est un ``MagicMock`` nu plutôt que la
+    fixture ``mock_hass`` : celle-ci est spécifiée sur la classe
+    ``HomeAssistant``, dont le gabarit n'expose pas ``config``, lu à la
+    construction du contrôleur.
+    """
+
+    from tests.const import MOCK_CONFIG_FULL
+    from custom_components.pool_management.controller import PoolController
+
+    config = MOCK_CONFIG_FULL.copy()
+    for cle in cles_retirees:
+        config.pop(cle, None)
+    config.update(config_surcharges or {})
+
+    hass = MagicMock()
+    hass.data = {}
+
+    return PoolController(hass, config)
 
 
 @pytest.mark.unit
@@ -142,7 +165,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
     def test_calculates_temperature_divided_by_three(self, mock_hivernage_controller):
         """Test basic temp/3 calculation."""
         mock_hivernage_controller.coefficientAjustementHivernage = 1.0
-        mock_hivernage_controller.tempsDeFiltrationMinimum = 3
+        mock_hivernage_controller.tempsDeFiltrationMinimumHivernage = 3
 
         result = mock_hivernage_controller.calculateTimeFiltrationWithTemperatureHivernage(12.0)
 
@@ -151,7 +174,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
     def test_enforces_minimum_filtration_time(self, mock_hivernage_controller):
         """Test that minimum filtration time is enforced."""
         mock_hivernage_controller.coefficientAjustementHivernage = 1.0
-        mock_hivernage_controller.tempsDeFiltrationMinimum = 3
+        mock_hivernage_controller.tempsDeFiltrationMinimumHivernage = 3
 
         result = mock_hivernage_controller.calculateTimeFiltrationWithTemperatureHivernage(6.0)
 
@@ -161,7 +184,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
     def test_applies_coefficient_adjustment(self, mock_hivernage_controller):
         """Test that coefficient adjustment is applied."""
         mock_hivernage_controller.coefficientAjustementHivernage = 1.5
-        mock_hivernage_controller.tempsDeFiltrationMinimum = 3
+        mock_hivernage_controller.tempsDeFiltrationMinimumHivernage = 3
 
         result = mock_hivernage_controller.calculateTimeFiltrationWithTemperatureHivernage(12.0)
 
@@ -170,7 +193,7 @@ class TestCalculateTimeFiltrationWithTemperatureHivernage:
     def test_various_temperatures(self, mock_hivernage_controller):
         """Test various temperature values."""
         mock_hivernage_controller.coefficientAjustementHivernage = 1.0
-        mock_hivernage_controller.tempsDeFiltrationMinimum = 3
+        mock_hivernage_controller.tempsDeFiltrationMinimumHivernage = 3
 
         test_cases = [
             (3.0, 3.0),   # Below minimum
@@ -239,7 +262,7 @@ class TestCalculateTimeFiltrationHivernage:
     def test_distribution_pattern_half_half(self, mock_hivernage_controller):
         """Test 1/2 <> 1/2 distribution pattern."""
         mock_hivernage_controller.distributionDatePivotHivernage = 1
-        mock_hivernage_controller.tempsDeFiltrationMinimum = 3
+        mock_hivernage_controller.tempsDeFiltrationMinimumHivernage = 3
 
         with patch('time.time', return_value=datetime(2025, 12, 15, 5, 0).timestamp()):
             mock_hivernage_controller.calculateTimeFiltrationHivernage(12.0, False)  # 12/3 = 4h
@@ -678,3 +701,79 @@ class TestHivernageIntegration:
 
         # Should activate due to frost protection even though outside time range
         assert mock_hivernage_controller.get_data("filtrationHivernage") == 1
+@pytest.mark.unit
+class TestTempsDeFiltrationMinimumHivernage:
+    """Tests du plancher de la plage d'hivernage.
+
+    Ce réglage a toujours été un réglage d'hivernage : le YAML d'origine le
+    déclarait dans le bloc hivernage, et il n'a jamais eu qu'un seul
+    consommateur, la durée calculée en hivernage. Le passage au Config Flow
+    l'a rangé par erreur dans le menu Filtration, où son libellé laissait
+    croire à un plancher saisonnier qui n'a jamais existé. Il porte
+    désormais un nom qui dit à quoi il sert.
+
+    La valeur déjà enregistrée sous l'ancien nom doit être reprise : une
+    installation qui avait porté le plancher à 6 h garde un plancher de 6 h.
+    """
+
+    def test_le_reglage_dedie_fixe_le_plancher(self):
+        """Le nouveau réglage fixe bien le plancher de la durée d'hivernage."""
+
+        controleur = _controleur_hivernage(
+            {"tempsDeFiltrationMinimumHivernage": 5},
+            cles_retirees=("tempsDeFiltrationMinimum",),
+        )
+
+        # 6 / 3 = 2 h, relevé au plancher demandé
+        assert controleur.calculateTimeFiltrationWithTemperatureHivernage(6.0) == 5.0
+
+    def test_le_reglage_dedie_prime_sur_l_ancien(self):
+        """Une fois le nouveau réglage posé, l'ancien ne compte plus."""
+
+        controleur = _controleur_hivernage(
+            {
+                "tempsDeFiltrationMinimum": 6,
+                "tempsDeFiltrationMinimumHivernage": 4,
+            }
+        )
+
+        assert controleur.calculateTimeFiltrationWithTemperatureHivernage(6.0) == 4.0
+
+    def test_l_ancien_reglage_est_repris(self):
+        """Sans nouveau réglage, la valeur déjà enregistrée continue de valoir.
+
+        C'est la seule garantie qui compte pour les installations en place :
+        un plancher porté à 6 h ne doit pas retomber à 3 h parce que le
+        réglage a changé de nom.
+        """
+
+        controleur = _controleur_hivernage(
+            {"tempsDeFiltrationMinimum": 6},
+            cles_retirees=("tempsDeFiltrationMinimumHivernage",),
+        )
+
+        assert controleur.tempsDeFiltrationMinimumHivernage == 6
+        assert controleur.calculateTimeFiltrationWithTemperatureHivernage(6.0) == 6.0
+
+    def test_sans_aucun_reglage_le_plancher_est_de_trois_heures(self):
+        """Une installation neuve filtre au moins 3 h."""
+
+        controleur = _controleur_hivernage(
+            cles_retirees=(
+                "tempsDeFiltrationMinimum",
+                "tempsDeFiltrationMinimumHivernage",
+            )
+        )
+
+        assert controleur.tempsDeFiltrationMinimumHivernage == 3
+        assert controleur.calculateTimeFiltrationWithTemperatureHivernage(6.0) == 3.0
+
+    def test_le_plancher_ne_rogne_pas_une_duree_plus_longue(self):
+        """Au-delà du plancher, c'est la température qui décide."""
+
+        controleur = _controleur_hivernage(
+            {"tempsDeFiltrationMinimumHivernage": 3},
+            cles_retirees=("tempsDeFiltrationMinimum",),
+        )
+
+        assert controleur.calculateTimeFiltrationWithTemperatureHivernage(15.0) == 5.0

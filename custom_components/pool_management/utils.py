@@ -142,5 +142,5 @@ class FiltrationUtilsMixin:
         # Coefficient d'ajustement (suivant config)
         dureeHeures *= self.coefficientAjustementHivernage
 
-        # Au moins 3 heures
-        return max(dureeHeures, self.tempsDeFiltrationMinimum)
+        # Plancher de la plage (3 h par défaut)
+        return max(dureeHeures, self.tempsDeFiltrationMinimumHivernage)

@@ -173,10 +173,6 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     }
                 }
             ),
-            vol.Optional(
-                "tempsDeFiltrationMinimum",
-                default=self.options.get("tempsDeFiltrationMinimum", 3),
-            ): int,
         }
 
         return self.async_show_form(
@@ -203,6 +199,15 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
             )
 
             self.options.update(user_input)
+
+            # Le plancher a changé de nom : deux clés portant le même sens
+            # finiraient par diverger. L'ancienne est retirée des options dès
+            # que l'écran est validé, sa valeur ayant servi de défaut au
+            # nouveau champ. Celle que porterait ``entry.data`` survit, mais
+            # les options primant sur elle dans la fusion, elle ne décide
+            # plus de rien.
+            self.options.pop("tempsDeFiltrationMinimum", None)
+
             return await self.async_step_init()
 
         return self.async_show_form(
@@ -227,6 +232,18 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                             }
                         }
                     ),
+                    # Plancher de la plage d'hivernage. Le défaut reprend la
+                    # valeur enregistrée sous l'ancien nom, pour que l'écran
+                    # s'ouvre sur le plancher qui s'applique réellement : le
+                    # valider ne doit pas changer le réglage à l'insu de
+                    # l'utilisateur.
+                    vol.Optional(
+                        "tempsDeFiltrationMinimumHivernage",
+                        default=self.options.get(
+                            "tempsDeFiltrationMinimumHivernage",
+                            self.options.get("tempsDeFiltrationMinimum", 3),
+                        ),
+                    ): int,
                     vol.Optional(
                         "distributionDatePivotHivernage",
                         default=str(

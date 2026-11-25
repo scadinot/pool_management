@@ -502,7 +502,7 @@ class TestBug9_FuseauSystemeDifferentDeHA:
         controller.data = {}
         controller.distributionDatePivotHivernage = 4  # 1/1 <> : fin au pivot
         controller.coefficientAjustementHivernage = 1.0
-        controller.tempsDeFiltrationMinimum = 3
+        controller.tempsDeFiltrationMinimumHivernage = 3
         return controller
 
     def test_sunrise_pivot_ends_filtration_at_real_sunrise(self, controller, ha_time_zone):
@@ -642,7 +642,7 @@ class TestBug10_PlageManqueeBloqueRecalcul:
         controller.getLeverSoleil = Mock(return_value="06:30")
         controller.choixHeureFiltrationHivernage = 1
         controller.distributionDatePivotHivernage = 2
-        controller.tempsDeFiltrationMinimum = 3
+        controller.tempsDeFiltrationMinimumHivernage = 3
         controller.coefficientAjustementHivernage = 1.0
         controller.temperatureSecurite = 0
         controller.temperatureHysteresis = 0.5

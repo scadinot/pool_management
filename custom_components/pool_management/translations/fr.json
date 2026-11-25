@@ -59,8 +59,7 @@
           "coefficientAjustement": "Coefficient d'ajustement",
           "datePivot": "Heure pivot",
           "pausePivot": "Pause en minutes",
-          "distributionDatePivot": "Distribution autour de l'heure pivot",
-          "tempsDeFiltrationMinimum": "Durée minimale (heures)"
+          "distributionDatePivot": "Distribution autour de l'heure pivot"
         }
       },
       "hivernage": {
@@ -68,6 +67,7 @@
         "data": {
           "traitementHivernage": "Activer le traitement en hivernage",
           "coefficientAjustementHivernage": "Coefficient hivernage",
+          "tempsDeFiltrationMinimumHivernage": "Durée minimale de la plage (heures)",
           "distributionDatePivotHivernage": "Distribution pivot hivernage",
           "choixHeureFiltrationHivernage": "Heure de référence de la plage",
           "datePivotHivernage": "Heure pivot hivernage",

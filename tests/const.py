@@ -42,7 +42,7 @@ MOCK_CONFIG_FULL = {
     "sondeLocalTechnique": True,
     "sondeLocalTechniquePause": 5,
     "traitementHivernage": True,
-    "tempsDeFiltrationMinimum": 3,
+    "tempsDeFiltrationMinimumHivernage": 3,
     "choixHeureFiltrationHivernage": 1,
     "datePivotHivernage": "06:00",
     "temperatureSecurite": 0,

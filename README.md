@@ -135,7 +135,6 @@ Une fois l'intégration ajoutée, ouvrez **Paramètres** → **Appareils et serv
 | Horaire pivot | `HH:MM` (défaut `13:00`) | Heure centrale autour de laquelle la filtration est répartie |
 | Pause pivot | minutes | Coupure au milieu du cycle. Sans effet avec les répartitions `1/1 ↔` et `↔ 1/1` (voir ci-dessous) |
 | Répartition autour du pivot | 1/2 ↔ 1/2, 1/3 ↔ 2/3, 2/3 ↔ 1/3, 1/1 ↔, ↔ 1/1 | Distribution du temps avant/après le pivot |
-| Temps de filtration minimum | heures | Plancher quotidien |
 
 Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un seul côté de l'heure pivot : celle-ci est donc une extrémité de la plage et non son milieu, et une coupure « au milieu du cycle » n'y a pas de place. La pause est alors ignorée, et le journal le signale à chaque calcul. Pour obtenir une coupure, choisissez une répartition qui encadre le pivot.
 
@@ -145,6 +144,7 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 |-----------|-----------------|-------------|
 | Traitement pendant l'hivernage | on/off | Active le traitement chimique en hivernage |
 | Coefficient d'ajustement hivernage | 0.3 à 1.7 | Multiplicateur dédié à l'hivernage |
+| Durée minimale de la plage | heures (défaut `3`) | Plancher de la plage d'hivernage |
 | Répartition horaire hivernage | identique au menu Filtration | |
 | Heure de référence de la plage | Liste : Lever du soleil / Heure fixe | Détermine le pivot autour duquel la plage est répartie. Recommandé : lever du soleil pour le hors-gel, la plage suivant alors la saison |
 | Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus |
@@ -174,11 +174,20 @@ Le temps de filtration est calculé d'après la température de l'eau :
 
 Le résultat est ensuite réparti autour de l'horaire pivot selon la distribution choisie.
 
+Le mode Saison n'applique **aucune durée plancher** : la méthode température / 2 suit la mesure sans borne basse, et la méthode courbe se contente de calculer sur 10 °C au minimum. La durée minimale réglable est propre à l'hivernage.
+
 ### Mode Hivernage
 
-La filtration démarre 2 h avant le lever du soleil (ou à l'heure configurée) pour une durée minimale de 3 h.
+La durée de filtration vaut la température de l'eau divisée par 3, multipliée par le coefficient d'ajustement hivernage, et ne descend jamais sous la durée minimale configurée. Avec le plancher par défaut de 3 h et un coefficient de 1, la température ne commande donc la durée qu'au-delà de 9 °C.
 
-- Si la température eau > 9 °C : temps calculé = température / 3.
+Cette durée est ensuite posée autour d'un pivot, comme en mode Saison : le pivot est le lever du soleil ou l'horaire fixe configuré, et c'est la **répartition hivernage** qui décide de quel côté la plage tombe. **Il n'existe aucun décalage fixe par rapport au lever du soleil** : la position de la plage se lit entièrement dans la répartition choisie.
+
+- Avec la répartition par défaut `1/1 ↔`, toute la filtration précède le pivot : la plage **se termine** au lever du soleil. Un lever à 08:25 pour une durée de 4 h 36 donne ainsi 03:49 – 08:25.
+- Avec `↔ 1/1`, elle **commence** au lever du soleil.
+- Avec `2/3 ↔ 1/3`, deux tiers de la plage précèdent le lever du soleil et un tiers le suit : au plancher de 3 h, la filtration démarre 2 h avant le lever du soleil et s'arrête 1 h après. C'était le découpage figé dans le code avant que la répartition devienne configurable, et c'est de là que venait le « 2 h avant le lever du soleil » que ce README présentait à tort comme la règle générale.
+
+Les autres mécanismes du mode :
+
 - Si la température air < seuil de sécurité : marche forcée en continu (hors-gel).
 - L'option « Filtration 5 mn / 3 h » assure une circulation régulière en cas de basses températures sans déclenchement hors-gel.
 

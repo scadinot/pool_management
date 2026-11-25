@@ -11,6 +11,9 @@ Le pattern correct est ``description={"suggested_value": ...}``, qui
 pré-remplit sans rien injecter.
 """
 
+import io
+import json
+
 import pytest
 import voluptuous as vol
 
@@ -416,3 +419,109 @@ async def test_une_valeur_invalide_deja_enregistree_n_empeche_pas_le_formulaire(
     valide = schema({"distributionDatePivotHivernage": "4"})
 
     assert valide["choixHeureFiltrationHivernage"] == "1"
+
+
+# ---------------------------------------------------------------------------
+# Plancher de la plage d'hivernage
+#
+# « Temps de filtration minimum » figurait dans le menu Filtration, où son
+# libellé annonçait un plancher saisonnier. La saison n'en a jamais appliqué
+# aucun : le réglage était déclaré dans le bloc hivernage du YAML d'origine
+# et n'a jamais eu qu'un seul consommateur, la durée calculée en hivernage.
+# Il siège donc désormais dans le menu Hivernage, sous un nom qui le dit.
+# ---------------------------------------------------------------------------
+
+LIBELLES = (
+    "custom_components/pool_management/strings.json",
+    "custom_components/pool_management/translations/fr.json",
+    "custom_components/pool_management/translations/en.json",
+)
+
+
+def _libelles(chemin: str) -> dict:
+    """Retourne les libellés de champs d'un fichier de traduction."""
+
+    with io.open(chemin, encoding="utf-8") as fichier:
+        contenu = json.load(fichier)
+
+    return contenu["options"]["step"]
+
+
+async def _schema(etape: str, options: dict) -> vol.Schema:
+    """Retourne le schéma du formulaire d'un menu."""
+
+    handler = _handler(options)
+    resultat = await getattr(handler, f"async_step_{etape}")()
+    return resultat["data_schema"]
+
+
+def _defauts(schema: vol.Schema) -> dict:
+    """Retourne les valeurs par défaut portées par les marqueurs du schéma."""
+
+    return {
+        cle.schema: cle.default()
+        for cle in schema.schema
+        if getattr(cle, "default", None) is not None
+    }
+
+
+async def test_le_plancher_est_propose_dans_le_menu_hivernage():
+    """Le menu Hivernage expose le plancher de la plage."""
+
+    schema = await _schema("hivernage", {})
+
+    assert "tempsDeFiltrationMinimumHivernage" in _defauts(schema)
+
+
+async def test_le_plancher_ne_figure_plus_dans_le_menu_filtration():
+    """Le menu Filtration ne propose plus de plancher.
+
+    La saison n'en applique aucun : le laisser là entretenait l'idée d'un
+    réglage saisonnier sans effet sur la saison.
+    """
+
+    schema = await _schema("filtration", {})
+
+    assert "tempsDeFiltrationMinimum" not in _defauts(schema)
+
+
+async def test_le_formulaire_propose_la_valeur_deja_enregistree():
+    """Une installation en place ouvre le menu sur son plancher actuel.
+
+    Le champ est pré-rempli avec la valeur héritée de l'ancien nom, pour que
+    l'utilisateur voie le plancher qui s'applique vraiment chez lui et ne le
+    change pas sans le savoir en validant l'écran.
+    """
+
+    schema = await _schema("hivernage", {"tempsDeFiltrationMinimum": 6})
+
+    assert _defauts(schema)["tempsDeFiltrationMinimumHivernage"] == 6
+
+
+async def test_valider_le_menu_retire_l_ancienne_cle():
+    """Le réglage migre une fois pour toutes, sans doublon.
+
+    Deux clés portant le même sens finiraient par diverger : seule la
+    nouvelle est conservée dès que l'écran est validé.
+    """
+
+    handler = _handler({"tempsDeFiltrationMinimum": 6})
+
+    await handler.async_step_hivernage({"tempsDeFiltrationMinimumHivernage": 6})
+
+    assert handler.options["tempsDeFiltrationMinimumHivernage"] == 6
+    assert "tempsDeFiltrationMinimum" not in handler.options
+
+
+def test_les_trois_fichiers_de_libelles_portent_le_nouveau_champ():
+    """Un champ sans libellé dans les trois fichiers affiche sa clé brute."""
+
+    for chemin in LIBELLES:
+        etapes = _libelles(chemin)
+
+        assert (
+            "tempsDeFiltrationMinimumHivernage" in etapes["hivernage"]["data"]
+        ), chemin
+        assert (
+            "tempsDeFiltrationMinimum" not in etapes["filtration"]["data"]
+        ), chemin
