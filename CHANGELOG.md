@@ -6,6 +6,20 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.6] — 2026-11-25
+
+### Corrigé
+- **Les créneaux de « Filtration 5 mn / 3 h » duraient six minutes.** La règle s'écrivait en huit comparaisons de chaînes « HHMM » aux bornes incluses — `"0200" <= currentTime <= "0205"` — et le cron repassant chaque minute, la minute 5 était retenue comme les cinq premières : chaque créneau tournait six minutes, soit huit minutes de filtration de trop par jour. Un créneau dure maintenant cinq minutes, de la minute 0 à la minute 4 incluse, ce qui ramène le total à 40 minutes par jour.
+
+### Modifié
+- **La règle des créneaux est devenue explicite.** Les huit heures tiennent dans une table, `CRENEAUX_5MN_3H`, et la décision dans une fonction qui lit l'heure locale, à la place de la chaîne de seize comparaisons de chaînes de caractères. Les créneaux sont inchangés : 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00 et 23:00.
+
+### Documentation
+- **Le README laissait croire à un rythme de 3 h, alors que les créneaux sont des heures d'horloge figées.** « Lance la filtration 5 min toutes les 3 h » ne disait pas à partir de quand : un lecteur pouvait comprendre un rythme calé sur la plage d'hivernage ou sur le lever du soleil. Les huit heures sont maintenant nommées, dans le tableau comme dans la section « Mode Hivernage », avec le total de 40 minutes par jour.
+
+### Ajouté
+- Cinq tests sur les créneaux : huit heures espacées de 3 h, déclenchement à l'heure pile, durée de cinq minutes — dont la minute 5 exclue, qui est la correction —, aucun déclenchement aux autres heures, et le total de 40 minutes par jour.
+
 ## [0.1.5] — 2026-11-25
 
 ### Corrigé

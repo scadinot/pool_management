@@ -150,7 +150,7 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 | Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus. Même contrôle de format que l'horaire pivot de saison |
 | Température de sécurité | °C (-20 à 10, défaut `-2`) | Seuil de déclenchement de la marche forcée hors-gel |
 | Hystérésis température | °C (0 à 5, défaut `0.5`) | Évite les démarrages/arrêts intempestifs |
-| Filtration 5mn / 3h | on/off | Lance la filtration 5 min toutes les 3 h |
+| Filtration 5mn / 3h | on/off | Lance la filtration 5 min sur huit créneaux d'horloge figés : 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00 et 23:00 |
 
 ### Menu Avancé
 
@@ -191,7 +191,7 @@ Cette durée est ensuite posée autour d'un pivot, comme en mode Saison : le piv
 Les autres mécanismes du mode :
 
 - Si la température air < seuil de sécurité : marche forcée en continu (hors-gel).
-- L'option « Filtration 5 mn / 3 h » assure une circulation régulière en cas de basses températures sans déclenchement hors-gel.
+- L'option « Filtration 5 mn / 3 h » assure une circulation régulière en cas de basses températures sans déclenchement hors-gel. Les créneaux sont des **heures d'horloge figées** — 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00 et 23:00, cinq minutes chacun — et non un rythme calé sur la plage d'hivernage ou sur le lever du soleil : 40 minutes par jour, aux mêmes heures toute la saison. Un créneau qui tombe dans la plage déjà calculée ne change rien, la filtration y tournant de toute façon.
 
 ### Sonde de température indisponible
 

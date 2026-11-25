@@ -4,9 +4,32 @@ import logging
 import time
 from typing import Optional
 
-from .utils import formatTimestamp, pivotTimestamp
+from .utils import formatTimestamp, localDatetime, pivotTimestamp
 
 _LOGGER = logging.getLogger(__name__)
+
+#: Créneaux de l'option « Filtration 5 mn / 3 h » : des heures d'horloge
+#: figées, et non un rythme relatif à la plage d'hivernage ou au lever du
+#: soleil. Huit heures espacées de 3 h depuis 02:00.
+CRENEAUX_5MN_3H = (2, 5, 8, 11, 14, 17, 20, 23)
+
+#: Durée d'un créneau, en minutes. La règle s'écrivait en comparaisons de
+#: chaînes « HHMM » aux bornes incluses — ``"0200" <= hhmm <= "0205"`` —
+#: et le cron repassant chaque minute, le créneau retenait aussi la
+#: minute 5 : il durait six minutes, soit huit de trop chaque jour.
+DUREE_CRENEAU_5MN_3H = 5
+
+
+def isCreneau5mn3h(timestamp: float) -> bool:
+    """Dit si l'instant tombe dans un créneau de la filtration 5 mn / 3 h.
+
+    L'heure est lue dans le fuseau de Home Assistant, comme le reste des
+    horaires de l'intégration.
+    """
+
+    instant = localDatetime(timestamp)
+
+    return instant.hour in CRENEAUX_5MN_3H and instant.minute < DUREE_CRENEAU_5MN_3H
 
 
 class HivernageMixin:
@@ -251,21 +274,9 @@ class HivernageMixin:
         if filtrationHivernageSecurite != 0:
             filtrationHivernage = 1
 
-        # 5mn toutes les 3H
-        if self.filtration5mn3h:
-            currentTime = formatTimestamp(time.time(), "%H%M")
-
-            if (
-                "0200" <= currentTime <= "0205"
-                or "0500" <= currentTime <= "0505"
-                or "0800" <= currentTime <= "0805"
-                or "1100" <= currentTime <= "1105"
-                or "1400" <= currentTime <= "1405"
-                or "1700" <= currentTime <= "1705"
-                or "2000" <= currentTime <= "2005"
-                or "2300" <= currentTime <= "2305"
-            ):
-                filtrationHivernage = 1
+        # 5 mn toutes les 3 h, sur des créneaux d'horloge figés
+        if self.filtration5mn3h and isCreneau5mn3h(time.time()):
+            filtrationHivernage = 1
 
         if int(self.get_data("filtrationHivernage", 0)) != filtrationHivernage:
             self.set_data("filtrationHivernage", filtrationHivernage)
