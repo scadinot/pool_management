@@ -879,3 +879,24 @@ async def test_valider_un_ecran_ne_transforme_pas_les_entiers_en_flottants():
     assert isinstance(handler.options["temperatureHysteresis"], float)
     assert isinstance(handler.options["temperatureSecurite"], int)
     assert isinstance(handler.options["tempsDeFiltrationMinimumHivernage"], int)
+
+
+def test_une_valeur_non_finie_retombe_sur_le_defaut():
+    """``min(max(nan, …))`` rend encore ``nan`` : le bornage ne suffit pas.
+
+    L'ancien champ d'hystérésis était un ``vol.Coerce(float)``, qui
+    acceptait la chaîne « nan ». Une hystérésis ``nan`` rend toujours
+    fausse la comparaison qui arrête la sécurité hors-gel : la marche
+    forcée, une fois déclenchée, ne s'arrêterait plus même par temps
+    doux.
+    """
+
+    for valeur in (float("nan"), "nan", float("inf"), float("-inf")):
+        controleur = _controleur({"temperatureHysteresis": valeur})
+
+        assert controleur.temperatureHysteresis == 0.5, repr(valeur)
+
+    for valeur in (float("nan"), "inf", float("-inf")):
+        controleur = _controleur({"surpresseurDuree": valeur})
+
+        assert controleur.surpresseurDuree == 5, repr(valeur)
