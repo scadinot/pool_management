@@ -28,22 +28,31 @@ STORAGE_KEY_PREFIX = "pool_management_data"
 
 VALID_DISTRIBUTIONS = (1, 2, 3, 4, 5)
 
+#: Valeurs acceptées par « Heure de référence de la plage » en hivernage :
+#: 1 = lever du soleil, 2 = heure fixe (``datePivotHivernage``).
+VALID_CHOIX_HEURE_HIVERNAGE = (1, 2)
+
 #: Actionneurs commandés par le contrôleur, dans l'ordre où il est sûr de les
 #: couper : traitements d'abord, surpresseur ensuite, filtration en dernier.
 #: L'eau doit circuler tant qu'un équipement tourne.
 RELAIS = ("traitement", "traitement_2", "surpresseur", "filtration")
 
 
-def _validate_distribution(value: Any, name: str, default: int) -> int:
-    """Validate that a distribution config value is in the allowed range.
+def _validate_choice(value: Any, name: str, default: int, allowed: tuple) -> int:
+    """Return value as an int when it belongs to allowed, else the default.
 
-    Returns the value as int if valid (1..5), otherwise logs a warning
-    and returns the provided default. Handles None and non-int values.
+    Les listes déroulantes de Home Assistant rendent des chaînes. La
+    conversion en entier est donc ce qui permet aux comparaisons du code
+    de voir la valeur choisie : ``"1" == 1`` vaut ``False`` en Python, et
+    un réglage comparé à un entier serait sinon toujours jugé différent.
+
+    Logs a warning and returns the default on an out-of-range value.
+    Handles None and non-int values.
     """
 
     try:
         v = int(value)
-        if v in VALID_DISTRIBUTIONS:
+        if v in allowed:
             return v
     except (TypeError, ValueError):
         pass
@@ -55,6 +64,34 @@ def _validate_distribution(value: Any, name: str, default: int) -> int:
         default,
     )
     return default
+
+
+def _validate_distribution(value: Any, name: str, default: int) -> int:
+    """Validate that a distribution config value is in the allowed range.
+
+    Returns the value as int if valid (1..5), otherwise logs a warning
+    and returns the provided default. Handles None and non-int values.
+    """
+
+    return _validate_choice(value, name, default, VALID_DISTRIBUTIONS)
+
+
+def _validate_choix_heure_hivernage(value: Any) -> int:
+    """Validate the hivernage reference-time choice: 1 sunrise, 2 fixed.
+
+    Le repli est le lever du soleil, choix recommandé pour le hors-gel.
+    La version précédente comparait la valeur à 1 sans la valider, si
+    bien que tout ce qui n'était pas exactement cet entier — 0, 7, une
+    chaîne rendue par une liste déroulante — basculait silencieusement
+    sur l'heure fixe.
+    """
+
+    return _validate_choice(
+        value,
+        "choixHeureFiltrationHivernage",
+        1,
+        VALID_CHOIX_HEURE_HIVERNAGE,
+    )
 
 
 class PoolController(
@@ -146,8 +183,8 @@ class PoolController(
             "distributionDatePivotHivernage",
             4,
         )
-        self.choixHeureFiltrationHivernage = config.get(
-            "choixHeureFiltrationHivernage", 1
+        self.choixHeureFiltrationHivernage = _validate_choix_heure_hivernage(
+            config.get("choixHeureFiltrationHivernage", 1)
         )
         self.datePivotHivernage = config.get("datePivotHivernage", "06:00")
         self.temperatureSecurite = config.get("temperatureSecurite", -2)

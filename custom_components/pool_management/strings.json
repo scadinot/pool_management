@@ -69,11 +69,14 @@
           "coefficientAjustementHivernage": "Winter adjustment coefficient",
           "tempsDeFiltrationMinimumHivernage": "Winter minimum filtration time (hours)",
           "distributionDatePivotHivernage": "Winter pivot distribution",
-          "choixHeureFiltrationHivernage": "Winter filtration time choice",
+          "choixHeureFiltrationHivernage": "Filtration window reference time",
           "datePivotHivernage": "Winter pivot time",
           "temperatureSecurite": "Safety temperature (°C)",
           "temperatureHysteresis": "Hysteresis (°C)",
           "filtration5mn3h": "5 minutes every 3 hours"
+        },
+        "data_description": {
+          "choixHeureFiltrationHivernage": "Sunrise follows the season; fixed time uses the winter pivot time below."
         }
       },
       "avance": {
@@ -140,6 +143,14 @@
       },
       "season": {
         "name": "Season mode"
+      }
+    }
+  },
+  "selector": {
+    "choix_heure_filtration_hivernage": {
+      "options": {
+        "1": "Sunrise",
+        "2": "Fixed time"
       }
     }
   }
