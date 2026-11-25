@@ -133,7 +133,7 @@ Une fois l'intégration ajoutée, ouvrez **Paramètres** → **Appareils et serv
 | Méthode de calcul | Courbe (1) / Température / 2 (2) | Algorithme de calcul du temps de filtration |
 | Coefficient d'ajustement | 0.3 à 1.7 | Multiplicateur appliqué au temps calculé |
 | Horaire pivot | `HH:MM` (défaut `13:00`) | Heure centrale autour de laquelle la filtration est répartie. Une saisie qui n'est pas au format `HH:MM` est remplacée par l'horaire précédent, avec un avertissement au journal |
-| Pause pivot | minutes | Coupure au milieu du cycle. Sans effet avec les répartitions `1/1 ↔` et `↔ 1/1` (voir ci-dessous) |
+| Pause pivot | minutes (0 à 1440) | Coupure au milieu du cycle. Sans effet avec les répartitions `1/1 ↔` et `↔ 1/1` (voir ci-dessous) |
 | Répartition autour du pivot | 1/2 ↔ 1/2, 1/3 ↔ 2/3, 2/3 ↔ 1/3, 1/1 ↔, ↔ 1/1 | Distribution du temps avant/après le pivot |
 
 Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un seul côté de l'heure pivot : celle-ci est donc une extrémité de la plage et non son milieu, et une coupure « au milieu du cycle » n'y a pas de place. La pause est alors ignorée, et le journal le signale à chaque calcul. Pour obtenir une coupure, choisissez une répartition qui encadre le pivot.
@@ -144,12 +144,12 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 |-----------|-----------------|-------------|
 | Traitement pendant l'hivernage | on/off | Active le traitement chimique en hivernage |
 | Coefficient d'ajustement hivernage | 0.3 à 1.7 | Multiplicateur dédié à l'hivernage |
-| Durée minimale de la plage | heures (défaut `3`) | Plancher de la plage d'hivernage |
+| Durée minimale de la plage | heures (0 à 24, défaut `3`) | Plancher de la plage d'hivernage |
 | Répartition horaire hivernage | identique au menu Filtration | |
 | Heure de référence de la plage | Liste : Lever du soleil / Heure fixe | Détermine le pivot autour duquel la plage est répartie. Recommandé : lever du soleil pour le hors-gel, la plage suivant alors la saison |
 | Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus. Même contrôle de format que l'horaire pivot de saison |
-| Température de sécurité | °C (défaut `-2`) | Seuil de déclenchement de la marche forcée hors-gel |
-| Hystérésis température | °C (défaut `0.5`) | Évite les démarrages/arrêts intempestifs |
+| Température de sécurité | °C (-20 à 10, défaut `-2`) | Seuil de déclenchement de la marche forcée hors-gel |
+| Hystérésis température | °C (0 à 5, défaut `0.5`) | Évite les démarrages/arrêts intempestifs |
 | Filtration 5mn / 3h | on/off | Lance la filtration 5 min toutes les 3 h |
 
 ### Menu Avancé
@@ -158,10 +158,12 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 |-----------|-------------|
 | Désactiver marche forcée | Bascule auto en début de cycle |
 | Sonde dans local technique | Active le mode sonde déportée |
-| Pause avant relevé température | Délai de stabilisation (minutes) |
-| Durée surpresseur | Minutes (défaut `5`) |
-| Durée lavage | Minutes (défaut `2`) |
-| Durée rinçage | Minutes (défaut `2`) |
+| Pause avant relevé température | Délai de stabilisation (minutes, 0 à 240) |
+| Durée surpresseur | Minutes (0 à 120, défaut `5`) |
+| Durée lavage | Minutes (0 à 60, défaut `2`) |
+| Durée rinçage | Minutes (0 à 60, défaut `2`). `0` saute l'étape de rinçage |
+
+Les champs numériques de ces trois menus sont bornés : une valeur hors bornes est refusée à l'écran, et une valeur déjà enregistrée hors bornes — héritée d'une version où ces champs étaient libres — est ramenée à la borne la plus proche au démarrage, avec un avertissement au journal.
 
 ## Comportement
 

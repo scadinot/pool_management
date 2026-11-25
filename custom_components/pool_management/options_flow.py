@@ -9,10 +9,34 @@ from homeassistant.config_entries import FlowResult
 from homeassistant.helpers.selector import selector
 
 from .controller import (
+    BORNES_NOMBRES,
+    _normaliser_nombres,
     _validate_choix_heure_hivernage,
     _validate_distribution,
     _validate_heure,
+    _validate_nombre,
 )
+
+
+def _selecteur_nombre(cle: str) -> Any:
+    """Construit le sélecteur borné d'un réglage numérique.
+
+    Le libellé de chacun de ces champs porte déjà son unité : aucune
+    ``unit_of_measurement`` n'est posée, elle ferait doublon.
+    """
+
+    minimum, maximum, defaut = BORNES_NOMBRES[cle]
+
+    return selector(
+        {
+            "number": {
+                "min": minimum,
+                "max": maximum,
+                "step": 1 if isinstance(defaut, int) else 0.1,
+                "mode": "box",
+            }
+        }
+    )
 
 
 class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
@@ -115,6 +139,36 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
             last_step=False,
         )
 
+    def _nombre(self, cle: str) -> Any:
+        """Retourne le réglage numérique enregistré, ramené dans ses bornes.
+
+        Un défaut hors bornes serait refusé par le sélecteur dès que le
+        champ est omis à la soumission, puisque ``vol.Optional`` le
+        réinjecte : l'écran deviendrait impossible à enregistrer.
+        """
+
+        minimum, maximum, defaut = BORNES_NOMBRES[cle]
+
+        return _validate_nombre(
+            self.options.get(cle, defaut), cle, defaut, minimum, maximum
+        )
+
+    def _plancher_hivernage(self) -> int:
+        """Retourne le plancher d'hivernage enregistré, ramené dans ses bornes.
+
+        Le réglage s'est longtemps appelé « tempsDeFiltrationMinimum » :
+        l'ancienne clé sert encore de défaut, pour que l'écran s'ouvre sur
+        le plancher qui s'applique réellement.
+        """
+
+        cle = "tempsDeFiltrationMinimumHivernage"
+        minimum, maximum, defaut = BORNES_NOMBRES[cle]
+        valeur = self.options.get(
+            cle, self.options.get("tempsDeFiltrationMinimum", defaut)
+        )
+
+        return _validate_nombre(valeur, cle, defaut, minimum, maximum)
+
     def _horaire(self, cle: str, defaut: str) -> str:
         """Retourne l'horaire enregistré, assaini, ou le défaut.
 
@@ -143,6 +197,8 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                 "datePivot",
                 self._horaire("datePivot", "13:00"),
             )
+
+            _normaliser_nombres(user_input, ("pausePivot",))
 
             self.options.update(user_input)
             return await self.async_step_init()
@@ -184,7 +240,9 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 "datePivot", default=self._horaire("datePivot", "13:00")
             ): str,
-            vol.Optional("pausePivot", default=self.options.get("pausePivot", 0)): int,
+            vol.Optional(
+                "pausePivot", default=self._nombre("pausePivot")
+            ): _selecteur_nombre("pausePivot"),
             vol.Optional(
                 "distributionDatePivot",
                 default=str(self.options.get("distributionDatePivot", 1)),
@@ -237,6 +295,15 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                 self._horaire("datePivotHivernage", "06:00"),
             )
 
+            _normaliser_nombres(
+                user_input,
+                (
+                    "tempsDeFiltrationMinimumHivernage",
+                    "temperatureSecurite",
+                    "temperatureHysteresis",
+                ),
+            )
+
             self.options.update(user_input)
 
             # Le plancher a changé de nom : deux clés portant le même sens
@@ -278,11 +345,8 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     # l'utilisateur.
                     vol.Optional(
                         "tempsDeFiltrationMinimumHivernage",
-                        default=self.options.get(
-                            "tempsDeFiltrationMinimumHivernage",
-                            self.options.get("tempsDeFiltrationMinimum", 3),
-                        ),
-                    ): int,
+                        default=self._plancher_hivernage(),
+                    ): _selecteur_nombre("tempsDeFiltrationMinimumHivernage"),
                     vol.Optional(
                         "distributionDatePivotHivernage",
                         default=str(
@@ -341,12 +405,12 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     ): str,
                     vol.Optional(
                         "temperatureSecurite",
-                        default=self.options.get("temperatureSecurite", -2),
-                    ): int,
+                        default=self._nombre("temperatureSecurite"),
+                    ): _selecteur_nombre("temperatureSecurite"),
                     vol.Optional(
                         "temperatureHysteresis",
-                        default=self.options.get("temperatureHysteresis", 0.5),
-                    ): vol.Coerce(float),
+                        default=self._nombre("temperatureHysteresis"),
+                    ): _selecteur_nombre("temperatureHysteresis"),
                     vol.Optional(
                         "filtration5mn3h",
                         default=self.options.get("filtration5mn3h", False),
@@ -360,6 +424,16 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
         """Handle the avance step of the options flow."""
 
         if user_input is not None:
+            _normaliser_nombres(
+                user_input,
+                (
+                    "sondeLocalTechniquePause",
+                    "surpresseurDuree",
+                    "lavageDuree",
+                    "rincageDuree",
+                ),
+            )
+
             self.options.update(user_input)
             return await self.async_step_init()
 
@@ -377,18 +451,18 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     ): bool,
                     vol.Optional(
                         "sondeLocalTechniquePause",
-                        default=self.options.get("sondeLocalTechniquePause", 0),
-                    ): int,
+                        default=self._nombre("sondeLocalTechniquePause"),
+                    ): _selecteur_nombre("sondeLocalTechniquePause"),
                     vol.Optional(
                         "surpresseurDuree",
-                        default=self.options.get("surpresseurDuree", 5),
-                    ): int,
+                        default=self._nombre("surpresseurDuree"),
+                    ): _selecteur_nombre("surpresseurDuree"),
                     vol.Optional(
-                        "lavageDuree", default=self.options.get("lavageDuree", 2)
-                    ): int,
+                        "lavageDuree", default=self._nombre("lavageDuree")
+                    ): _selecteur_nombre("lavageDuree"),
                     vol.Optional(
-                        "rincageDuree", default=self.options.get("rincageDuree", 2)
-                    ): int,
+                        "rincageDuree", default=self._nombre("rincageDuree")
+                    ): _selecteur_nombre("rincageDuree"),
                 }
             ),
             last_step=False,
