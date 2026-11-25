@@ -192,6 +192,36 @@ async def test_les_options_priment_sur_les_donnees_initiales():
     assert config["datePivot"] == "09:00"
 
 
+async def test_le_panneau_recoit_les_durees_bornees():
+    """Le panneau doit afficher le cycle réel, pas la valeur enregistrée.
+
+    ``frontend.py`` lit « lavageDuree » et « rincageDuree » directement
+    dans la configuration : un ancien ``lavageDuree = 500`` ferait
+    afficher 500 minutes pour un cycle que le contrôleur ramène à 60, et
+    un ``rincageDuree`` négatif annoncerait un rinçage que le contrôleur
+    saute.
+    """
+
+    hass = _hass()
+    entry = _entry(data={"name": "Piscine", "lavageDuree": 500, "rincageDuree": -5})
+
+    controleur = _controller()
+    controleur.lavageDuree = 60
+    controleur.rincageDuree = 0
+
+    with (
+        patch(f"{MODULE}.PoolController", return_value=controleur),
+        patch(f"{MODULE}.async_register_panel", new=AsyncMock()) as panneau,
+    ):
+        await async_setup_entry(hass, entry)
+
+    conf_panneau = panneau.await_args[0][3]
+
+    assert conf_panneau["lavageDuree"] == 60
+    assert conf_panneau["rincageDuree"] == 0
+    assert conf_panneau["name"] == "Piscine"
+
+
 def _etat(valeur: str) -> MagicMock:
     """État Home Assistant réduit à sa valeur."""
 

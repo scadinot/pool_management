@@ -127,9 +127,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Démarrer les plateformes déclarées (sensor.py, button.py seront appelés ici)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Enregistrer le panneau latéral spécifique à cette instance
+    # Enregistrer le panneau latéral spécifique à cette instance.
+    #
+    # Le panneau lit « lavageDuree » et « rincageDuree » directement
+    # dans la configuration, sans passer par le contrôleur : lui
+    # transmettre les valeurs brutes afficherait 500 minutes pour un
+    # cycle que le contrôleur ramène à 60, et annoncerait un rinçage
+    # là où une durée négative le fait sauter. Les deux durées
+    # viennent donc du contrôleur, qui les a bornées.
     slug = _slug_from_entry(entry)
-    await async_register_panel(hass, slug, entry.title, conf)
+    conf_panneau = {
+        **conf,
+        "lavageDuree": controller.lavageDuree,
+        "rincageDuree": controller.rincageDuree,
+    }
+    await async_register_panel(hass, slug, entry.title, conf_panneau)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
     # Ensuite on peut lancer le cron
