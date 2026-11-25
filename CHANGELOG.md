@@ -6,6 +6,17 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.3] — 2026-11-25
+
+### Modifié
+- **Le choix de l'heure de référence de l'hivernage se fait désormais dans une liste déroulante.** Le réglage se saisissait dans un champ numérique nu, où `1` valait « lever du soleil » et `2` « heure fixe » sans que rien à l'écran ne le dise : il fallait lire ce README pour le deviner, et un utilisateur pouvait croire piloter la durée de la plage alors qu'il n'en choisissait que le pivot. La liste affiche maintenant les deux choix en clair, avec des libellés traduits en français et en anglais et une ligne d'aide sous le champ. Le libellé passe de « Choix de l'heure hivernage » à « Heure de référence de la plage ».
+
+### Corrigé
+- **Une valeur de choix d'heure hors 1-2 basculait silencieusement sur l'heure fixe.** Le code comparait le réglage à l'entier `1` sans le valider : tout ce qui n'était pas exactement cette valeur — `0`, `7`, `None`, ou une chaîne telle qu'en rendent les listes déroulantes de Home Assistant — était tenu pour « heure fixe », sans trace au journal. La valeur est maintenant convertie et validée, avec repli sur le lever du soleil, qui est le choix recommandé pour le hors-gel, et un avertissement au journal. C'est aussi ce qui permet à la nouvelle liste déroulante de fonctionner : `"1" == 1` vaut `False` en Python, et une liste posée sans cette conversion aurait basculé toutes les installations sur l'heure fixe.
+
+### Ajouté
+- Tests : sept cas ajoutés à `tests/test_options_flow.py`, qui couvrent le trajet complet du formulaire jusqu'au contrôleur — la liste est bien formée et tire ses libellés des traductions, la valeur enregistrée présélectionne la bonne entrée, chacun des deux choix est stocké en entier, une valeur déjà stockée en chaîne redevient un entier, une valeur invalide revient au lever du soleil, et les trois fichiers de libellés portent la liste et son aide.
+
 ## [0.1.2] — 2026-11-11
 
 ### Corrigé

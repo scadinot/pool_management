@@ -146,8 +146,8 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 | Traitement pendant l'hivernage | on/off | Active le traitement chimique en hivernage |
 | Coefficient d'ajustement hivernage | 0.3 à 1.7 | Multiplicateur dédié à l'hivernage |
 | Répartition horaire hivernage | identique au menu Filtration | |
-| Choix heure filtration | Lever du soleil (1) / Heure fixe (2) | Recommandé : lever du soleil pour le hors-gel |
-| Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Si choix « Heure fixe » sélectionné |
+| Heure de référence de la plage | Liste : Lever du soleil / Heure fixe | Détermine le pivot autour duquel la plage est répartie. Recommandé : lever du soleil pour le hors-gel, la plage suivant alors la saison |
+| Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus |
 | Température de sécurité | °C (défaut `-2`) | Seuil de déclenchement de la marche forcée hors-gel |
 | Hystérésis température | °C (défaut `0.5`) | Évite les démarrages/arrêts intempestifs |
 | Filtration 5mn / 3h | on/off | Lance la filtration 5 min toutes les 3 h |
