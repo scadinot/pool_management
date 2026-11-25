@@ -1,6 +1,7 @@
 """Pool controller integration for Home Assistant."""
 
 import logging
+from datetime import datetime
 from typing import Any, Optional
 
 from homeassistant.config_entries import ConfigEntry
@@ -94,6 +95,45 @@ def _validate_choix_heure_hivernage(value: Any) -> int:
     )
 
 
+#: Formats acceptés pour un horaire pivot. ``%H:%M`` est celui qu'attend
+#: ``pivotTimestamp`` ; ``%H:%M:%S`` est celui que rendrait un sélecteur
+#: d'heure de Home Assistant, accepté pour qu'un changement de champ un
+#: jour ne casse pas le calcul.
+FORMATS_HEURE = ("%H:%M", "%H:%M:%S")
+
+
+def _validate_heure(value: Any, name: str, default: str) -> str:
+    """Return the value as a HH:MM string, or the default when unreadable.
+
+    « Horaire pivot » et « Horaire pivot hivernage » sont des champs texte
+    libres dont la valeur finit dans ``datetime.strptime`` : « 13h00 »,
+    « 25:00 » ou un champ vidé y levaient une exception. Rien ne
+    l'attrapait, et le cron qui calcule la plage repasse chaque minute ;
+    la saisie était acceptée, puis plus aucune plage n'était calculée et
+    le journal prenait une erreur par minute.
+
+    La valeur rendue est toujours normalisée au format ``HH:MM``, seul
+    format que lit ``pivotTimestamp``.
+    """
+
+    if isinstance(value, str):
+        for format_heure in FORMATS_HEURE:
+            try:
+                return datetime.strptime(
+                    value.strip(), format_heure
+                ).strftime("%H:%M")
+            except ValueError:
+                continue
+
+    _LOGGER.warning(
+        "%s invalide (%s), utilisation de la valeur par défaut %s",
+        name,
+        value,
+        default,
+    )
+    return default
+
+
 class PoolController(
     ActivationMixin,
     ButtonMixin,
@@ -153,7 +193,9 @@ class PoolController(
 
         self.disableMarcheForcee = config.get("disableMarcheForcee", False)
         self.methodeCalcul = int(config.get("methodeCalcul", 1))
-        self.datePivot = config.get("datePivot", "13:00")
+        self.datePivot = _validate_heure(
+            config.get("datePivot", "13:00"), "datePivot", "13:00"
+        )
         self.pausePivot = config.get("pausePivot", 0)
         self.distributionDatePivot = _validate_distribution(
             config.get("distributionDatePivot", 1), "distributionDatePivot", 1
@@ -186,7 +228,11 @@ class PoolController(
         self.choixHeureFiltrationHivernage = _validate_choix_heure_hivernage(
             config.get("choixHeureFiltrationHivernage", 1)
         )
-        self.datePivotHivernage = config.get("datePivotHivernage", "06:00")
+        self.datePivotHivernage = _validate_heure(
+            config.get("datePivotHivernage", "06:00"),
+            "datePivotHivernage",
+            "06:00",
+        )
         self.temperatureSecurite = config.get("temperatureSecurite", -2)
         self.temperatureHysteresis = config.get("temperatureHysteresis", 0.5)
         self.filtration5mn3h = config.get("filtration5mn3h", False)

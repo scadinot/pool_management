@@ -132,7 +132,7 @@ Une fois l'intégration ajoutée, ouvrez **Paramètres** → **Appareils et serv
 |-----------|-----------------|-------------|
 | Méthode de calcul | Courbe (1) / Température / 2 (2) | Algorithme de calcul du temps de filtration |
 | Coefficient d'ajustement | 0.3 à 1.7 | Multiplicateur appliqué au temps calculé |
-| Horaire pivot | `HH:MM` (défaut `13:00`) | Heure centrale autour de laquelle la filtration est répartie |
+| Horaire pivot | `HH:MM` (défaut `13:00`) | Heure centrale autour de laquelle la filtration est répartie. Une saisie qui n'est pas au format `HH:MM` est remplacée par l'horaire précédent, avec un avertissement au journal |
 | Pause pivot | minutes | Coupure au milieu du cycle. Sans effet avec les répartitions `1/1 ↔` et `↔ 1/1` (voir ci-dessous) |
 | Répartition autour du pivot | 1/2 ↔ 1/2, 1/3 ↔ 2/3, 2/3 ↔ 1/3, 1/1 ↔, ↔ 1/1 | Distribution du temps avant/après le pivot |
 
@@ -147,7 +147,7 @@ Avec les répartitions `1/1 ↔` et `↔ 1/1`, toute la filtration se place d'un
 | Durée minimale de la plage | heures (défaut `3`) | Plancher de la plage d'hivernage |
 | Répartition horaire hivernage | identique au menu Filtration | |
 | Heure de référence de la plage | Liste : Lever du soleil / Heure fixe | Détermine le pivot autour duquel la plage est répartie. Recommandé : lever du soleil pour le hors-gel, la plage suivant alors la saison |
-| Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus |
+| Horaire pivot hivernage | `HH:MM` (défaut `06:00`) | Utilisé seulement si « Heure fixe » est sélectionné ci-dessus. Même contrôle de format que l'horaire pivot de saison |
 | Température de sécurité | °C (défaut `-2`) | Seuil de déclenchement de la marche forcée hors-gel |
 | Hystérésis température | °C (défaut `0.5`) | Évite les démarrages/arrêts intempestifs |
 | Filtration 5mn / 3h | on/off | Lance la filtration 5 min toutes les 3 h |

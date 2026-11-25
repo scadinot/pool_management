@@ -6,6 +6,15 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.4] — 2026-11-25
+
+### Corrigé
+- **Un horaire pivot illisible arrêtait tout calcul de plage.** « Horaire pivot » et « Horaire pivot hivernage » sont des champs texte libres dont la valeur finit dans `datetime.strptime(pivot, "%H:%M")` : `13h00`, `25:00`, `1:00 PM` ou un champ vidé y levaient une exception. Rien ne l'attrapait — ni le formulaire, qui enregistrait la saisie sans broncher, ni le cron qui calcule la plage toutes les minutes. L'intégration restait chargée, mais plus aucune plage n'était calculée et le journal prenait une erreur par minute. Les deux horaires sont désormais validés à la soumission, avec repli sur l'horaire déjà enregistré — ou sur `13:00` et `06:00` à défaut — et un avertissement au journal ; la valeur est normalisée au format `HH:MM`, le seul que lise le calcul. La correction reste silencieuse à l'écran : le formulaire s'enregistre, et c'est le journal qui porte la trace de la saisie remplacée. Le contrôleur valide aussi ce qu'il relit au démarrage, pour qu'une entrée déjà enregistrée avec un horaire fautif reparte sans intervention ; et le formulaire présélectionne une valeur assainie, car `vol.Optional` réinjecte son défaut dès que le champ est omis — un défaut invalide se réenregistrerait tel quel.
+- **Les deux choix de « Méthode de calcul » s'affichaient en français dans une interface en anglais.** Leurs libellés étaient écrits en dur dans le code du formulaire. La liste tire maintenant ses libellés des traductions, comme « Heure de référence de la plage », et les trois fichiers — `strings.json`, `translations/fr.json`, `translations/en.json` — les servent.
+
+### Ajouté
+- Neuf tests couvrent ces deux corrections : horaires remplacés puis normalisés dans les deux menus, repli sur l'horaire en place, défaut du formulaire assaini, relecture défensive du contrôleur, calcul de plage qui ne lève plus sur une valeur fautive, `translation_key` du sélecteur et présence des libellés dans les trois fichiers.
+
 ## [0.1.3] — 2026-11-25
 
 ### Modifié

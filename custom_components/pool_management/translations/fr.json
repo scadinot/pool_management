@@ -147,6 +147,12 @@
     }
   },
   "selector": {
+    "methode_calcul": {
+      "options": {
+        "1": "Courbe de température",
+        "2": "Température / 2"
+      }
+    },
     "choix_heure_filtration_hivernage": {
       "options": {
         "1": "Lever du soleil",
