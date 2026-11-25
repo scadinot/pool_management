@@ -387,3 +387,32 @@ async def test_le_schema_refuse_une_valeur_hors_liste():
                 "distributionDatePivotHivernage": "4",
             }
         )
+@pytest.mark.bugs
+async def test_une_valeur_invalide_deja_enregistree_n_empeche_pas_le_formulaire():
+    """Une valeur hors liste deja enregistree ne doit pas bloquer l'ecran.
+
+    L'ancien champ numerique etait libre : une entree peut donc porter 0,
+    7, ou tout autre entier saisi a la main. Rendu tel quel en defaut du
+    formulaire, ce nombre ne correspond a aucune entree de la liste, qui
+    s'ouvre alors sans choix valide. Et si le champ est omis a la
+    soumission, ``vol.Optional`` injecte ce defaut puis le selecteur le
+    rejette -- avant que la validation de l'etape ait pu le corriger, donc
+    sans que l'utilisateur puisse enregistrer quoi que ce soit.
+
+    Le controleur, lui, repliait bien sur 1, mais dans son seul etat
+    interne : la valeur enregistree restait invalide.
+    """
+
+    schema = await _schema_hivernage({"choixHeureFiltrationHivernage": 7})
+    cle, _ = _champ(schema, "choixHeureFiltrationHivernage")
+
+    assert cle.default() == "1", (
+        "le defaut propose doit etre une entree de la liste, obtenu %r"
+        % (cle.default(),)
+    )
+
+    # Champ omis a la soumission : vol.Optional injecte le defaut, que le
+    # selecteur doit accepter sous peine de bloquer l'enregistrement.
+    valide = schema({"distributionDatePivotHivernage": "4"})
+
+    assert valide["choixHeureFiltrationHivernage"] == "1"

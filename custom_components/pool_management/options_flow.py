@@ -250,10 +250,22 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     # un entier nu, ne disait que 1 valait « lever du
                     # soleil » et 2 « heure fixe ». Les libellés viennent
                     # des traductions via ``translation_key``.
+                    #
+                    # Le défaut est validé avant d'être converti en chaîne.
+                    # L'ancien champ numérique était libre, donc une entrée
+                    # peut porter 0 ou 7 : rendu tel quel, ce nombre ne
+                    # correspondrait à aucune entrée de la liste, qui
+                    # s'ouvrirait sans choix valide. Et le champ omis à la
+                    # soumission, ``vol.Optional`` injecterait ce défaut
+                    # puis le sélecteur le rejetterait — avant que la
+                    # validation de l'étape ait pu le corriger, bloquant
+                    # tout enregistrement.
                     vol.Optional(
                         "choixHeureFiltrationHivernage",
                         default=str(
-                            self.options.get("choixHeureFiltrationHivernage", 1)
+                            _validate_choix_heure_hivernage(
+                                self.options.get("choixHeureFiltrationHivernage", 1)
+                            )
                         ),
                     ): selector(
                         {
