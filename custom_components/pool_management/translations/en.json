@@ -67,7 +67,7 @@
         "data": {
           "traitementHivernage": "Enable treatment in winter mode",
           "coefficientAjustementHivernage": "Winter adjustment coefficient",
-          "tempsDeFiltrationMinimumHivernage": "Winter minimum filtration time (hours)",
+          "tempsDeFiltrationMinimumHivernage": "Minimum window duration (hours)",
           "distributionDatePivotHivernage": "Winter pivot distribution",
           "choixHeureFiltrationHivernage": "Filtration window reference time",
           "datePivotHivernage": "Winter pivot time",

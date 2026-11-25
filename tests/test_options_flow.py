@@ -528,6 +528,32 @@ def test_les_trois_fichiers_de_libelles_portent_le_nouveau_champ():
         ), chemin
 
 
+def test_les_libelles_de_la_plage_emploient_le_meme_mot():
+    """« plage » se dit « window » dans ce menu, et partout de même.
+
+    « Heure de référence de la plage » est rendu par « Filtration window
+    reference time » depuis que la liste déroulante existe. Le plancher,
+    lui, était resté sur « Winter minimum filtration time » : l'ancien
+    nom du réglage, celui d'avant son déménagement dans le menu
+    Hivernage, alors que le français parlait déjà de la plage. Deux
+    libellés pour une même notion, et l'anglais qui annonçait encore un
+    plancher de filtration là où le français annonçait une durée de
+    plage.
+    """
+
+    champs = (
+        "choixHeureFiltrationHivernage",
+        "tempsDeFiltrationMinimumHivernage",
+    )
+
+    for chemin in LIBELLES:
+        libelles = _libelles(chemin)["hivernage"]["data"]
+        attendu = "plage" if chemin.endswith("fr.json") else "window"
+
+        for cle in champs:
+            assert attendu in libelles[cle].lower(), (chemin, cle)
+
+
 # ---------------------------------------------------------------------------
 # Horaires pivot : du texte libre consommé par ``strptime``
 #

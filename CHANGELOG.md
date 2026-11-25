@@ -6,6 +6,14 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.8] — 2026-11-25
+
+### Documentation
+- **Le libellé anglais du plancher d'hivernage annonçait encore l'ancien réglage.** « Winter minimum filtration time » datait d'avant le déménagement de ce réglage dans le menu Hivernage : le français annonçait la durée de la plage, l'anglais un temps de filtration minimum. Il devient « Minimum window duration », qui reprend le mot déjà retenu pour « plage » dans ce menu — « Heure de référence de la plage » s'y traduit par « Filtration window reference time ».
+
+### Ajouté
+- Un test vérifie que les deux libellés qui parlent de la plage emploient le même mot, dans les trois fichiers de traduction : le français « plage », l'anglais « window ».
+
 ## [0.1.7] — 2026-11-25
 
 ### Corrigé
