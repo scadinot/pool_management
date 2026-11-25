@@ -8,7 +8,10 @@ from homeassistant import config_entries
 from homeassistant.config_entries import FlowResult
 from homeassistant.helpers.selector import selector
 
-from .controller import _validate_distribution
+from .controller import (
+    _validate_choix_heure_hivernage,
+    _validate_distribution,
+)
 
 
 class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
@@ -189,6 +192,16 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                 "distributionDatePivotHivernage",
                 4,
             )
+
+            # La liste déroulante rend une chaîne, et ``hivernage.py``
+            # compare ce réglage à l'entier 1 : sans conversion ici, le
+            # choix du lever du soleil serait lu comme une heure fixe.
+            user_input["choixHeureFiltrationHivernage"] = (
+                _validate_choix_heure_hivernage(
+                    user_input.get("choixHeureFiltrationHivernage")
+                )
+            )
+
             self.options.update(user_input)
             return await self.async_step_init()
 
@@ -233,10 +246,36 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                             }
                         }
                     ),
+                    # Liste déroulante et non champ numérique : rien, dans
+                    # un entier nu, ne disait que 1 valait « lever du
+                    # soleil » et 2 « heure fixe ». Les libellés viennent
+                    # des traductions via ``translation_key``.
+                    #
+                    # Le défaut est validé avant d'être converti en chaîne.
+                    # L'ancien champ numérique était libre, donc une entrée
+                    # peut porter 0 ou 7 : rendu tel quel, ce nombre ne
+                    # correspondrait à aucune entrée de la liste, qui
+                    # s'ouvrirait sans choix valide. Et le champ omis à la
+                    # soumission, ``vol.Optional`` injecterait ce défaut
+                    # puis le sélecteur le rejetterait — avant que la
+                    # validation de l'étape ait pu le corriger, bloquant
+                    # tout enregistrement.
                     vol.Optional(
                         "choixHeureFiltrationHivernage",
-                        default=self.options.get("choixHeureFiltrationHivernage", 1),
-                    ): int,
+                        default=str(
+                            _validate_choix_heure_hivernage(
+                                self.options.get("choixHeureFiltrationHivernage", 1)
+                            )
+                        ),
+                    ): selector(
+                        {
+                            "select": {
+                                "mode": "dropdown",
+                                "translation_key": "choix_heure_filtration_hivernage",
+                                "options": ["1", "2"],
+                            }
+                        }
+                    ),
                     vol.Optional(
                         "datePivotHivernage",
                         default=self.options.get("datePivotHivernage", "06:00"),

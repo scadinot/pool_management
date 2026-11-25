@@ -69,11 +69,14 @@
           "traitementHivernage": "Activer le traitement en hivernage",
           "coefficientAjustementHivernage": "Coefficient hivernage",
           "distributionDatePivotHivernage": "Distribution pivot hivernage",
-          "choixHeureFiltrationHivernage": "Choix de l'heure hivernage",
+          "choixHeureFiltrationHivernage": "Heure de référence de la plage",
           "datePivotHivernage": "Heure pivot hivernage",
           "temperatureSecurite": "Température de sécurité (°C)",
           "temperatureHysteresis": "Hystérésis (°C)",
           "filtration5mn3h": "Activer 5min toutes les 3h"
+        },
+        "data_description": {
+          "choixHeureFiltrationHivernage": "Le lever du soleil suit la saison ; l'heure fixe utilise « Heure pivot hivernage » ci-dessous."
         }
       },
       "avance": {
@@ -140,6 +143,14 @@
       },
       "season": {
         "name": "Saison"
+      }
+    }
+  },
+  "selector": {
+    "choix_heure_filtration_hivernage": {
+      "options": {
+        "1": "Lever du soleil",
+        "2": "Heure fixe"
       }
     }
   }
