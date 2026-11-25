@@ -19,6 +19,7 @@ Functions tested:
 """
 
 import pytest
+from itertools import pairwise
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 import time
@@ -777,3 +778,107 @@ class TestTempsDeFiltrationMinimumHivernage:
         )
 
         assert controleur.calculateTimeFiltrationWithTemperatureHivernage(15.0) == 5.0
+
+
+# ---------------------------------------------------------------------------
+# Filtration « 5 mn / 3 h » : des créneaux d'horloge figés
+#
+# L'option ne lance pas la filtration « toutes les 3 h » à partir d'un
+# moment choisi : elle vise huit créneaux fixes, 02:00, 05:00 … 23:00. La
+# règle était écrite en une chaîne de huit comparaisons de chaînes de
+# caractères, ``"0200" <= hhmm <= "0205"``, bornes incluses : avec un cron
+# à la minute, le créneau durait six minutes et non cinq.
+# ---------------------------------------------------------------------------
+
+
+def _horodatage(heure, minute=0):
+    """Horodatage d'un 15 janvier, à l'heure locale de Home Assistant."""
+
+    from homeassistant.util import dt as dt_util
+
+    return datetime(
+        2026, 1, 15, heure, minute, tzinfo=dt_util.DEFAULT_TIME_ZONE
+    ).timestamp()
+
+
+class TestCreneaux5mn3h:
+    """Les créneaux de l'option « Filtration 5 mn / 3 h »."""
+
+    def test_huit_creneaux_espaces_de_trois_heures(self):
+        """Le nom de l'option annonce un rythme : la table doit le tenir."""
+
+        from custom_components.pool_management.hivernage import CRENEAUX_5MN_3H
+
+        assert len(CRENEAUX_5MN_3H) == 8
+        assert CRENEAUX_5MN_3H[0] == 2
+
+        ecarts = {
+            suivant - precedent
+            for precedent, suivant in pairwise(CRENEAUX_5MN_3H)
+        }
+
+        assert ecarts == {3}
+
+    def test_chaque_creneau_declenche_a_son_heure_pile(self):
+        """Les huit heures visées lancent la filtration."""
+
+        from custom_components.pool_management.hivernage import (
+            CRENEAUX_5MN_3H,
+            isCreneau5mn3h,
+        )
+
+        for heure in CRENEAUX_5MN_3H:
+            assert isCreneau5mn3h(_horodatage(heure)) is True, heure
+
+    def test_le_creneau_dure_cinq_minutes(self):
+        """Cinq minutes, de la minute 0 à la minute 4 incluse.
+
+        Les bornes incluses de l'ancienne comparaison retenaient aussi la
+        minute 5 : le cron passant chaque minute, la filtration tournait
+        six minutes par créneau, soit huit minutes de trop par jour.
+        """
+
+        from custom_components.pool_management.hivernage import isCreneau5mn3h
+
+        for minute in range(5):
+            assert isCreneau5mn3h(_horodatage(2, minute)) is True, minute
+
+        assert isCreneau5mn3h(_horodatage(2, 5)) is False
+        assert isCreneau5mn3h(_horodatage(2, 30)) is False
+        assert isCreneau5mn3h(_horodatage(1, 59)) is False
+
+    def test_les_autres_heures_ne_declenchent_rien(self):
+        """Hors des huit créneaux, l'option ne doit rien imposer."""
+
+        from custom_components.pool_management.hivernage import (
+            CRENEAUX_5MN_3H,
+            isCreneau5mn3h,
+        )
+
+        for heure in range(24):
+            if heure in CRENEAUX_5MN_3H:
+                continue
+
+            for minute in (0, 1, 4, 30, 59):
+                assert isCreneau5mn3h(_horodatage(heure, minute)) is False, (
+                    heure,
+                    minute,
+                )
+
+    def test_quarante_minutes_de_filtration_imposees_par_jour(self):
+        """Huit créneaux de cinq minutes : le total doit rester modeste.
+
+        C'est ce total qui donne son sens à l'option en hivernage : faire
+        circuler l'eau sans la filtrer pour autant.
+        """
+
+        from custom_components.pool_management.hivernage import isCreneau5mn3h
+
+        minutes = sum(
+            1
+            for heure in range(24)
+            for minute in range(60)
+            if isCreneau5mn3h(_horodatage(heure, minute))
+        )
+
+        assert minutes == 40
