@@ -11,6 +11,7 @@ from homeassistant.helpers.selector import selector
 from .controller import (
     _validate_choix_heure_hivernage,
     _validate_distribution,
+    _validate_heure,
 )
 
 
@@ -114,6 +115,17 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
             last_step=False,
         )
 
+    def _horaire(self, cle: str, defaut: str) -> str:
+        """Retourne l'horaire enregistré, assaini, ou le défaut.
+
+        Sert de valeur proposée par le formulaire et de repli en cas de
+        saisie illisible : un utilisateur réglé sur 14:30 qui tape
+        « 15h00 » garde 14:30, plutôt que d'être ramené au défaut du
+        paquet, qu'il n'a peut-être jamais utilisé.
+        """
+
+        return _validate_heure(self.options.get(cle, defaut), cle, defaut)
+
     async def async_step_filtration(self, user_input: Optional[dict[str, Any]] = None) -> FlowResult:
         """Handle the filtration step of the options flow."""
 
@@ -121,6 +133,17 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
             user_input["distributionDatePivot"] = _validate_distribution(
                 user_input.get("distributionDatePivot"), "distributionDatePivot", 1
             )
+
+            # Champ texte libre consommé par ``strptime`` : un horaire
+            # illisible s'enregistrait sans bruit, puis faisait échouer
+            # le calcul de la plage à chaque minute du cron. Le repli
+            # est l'horaire déjà en place, non le défaut du paquet.
+            user_input["datePivot"] = _validate_heure(
+                user_input.get("datePivot"),
+                "datePivot",
+                self._horaire("datePivot", "13:00"),
+            )
+
             self.options.update(user_input)
             return await self.async_step_init()
 
@@ -131,10 +154,12 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                 {
                     "select": {
                         "mode": "dropdown",
-                        "options": [
-                            {"value": "1", "label": "Courbe de température"},
-                            {"value": "2", "label": "Température / 2"},
-                        ],
+                        # Les libellés étaient écrits en français dans
+                        # le code : une interface en anglais affichait
+                        # « Courbe de température ». Ils viennent
+                        # désormais des traductions.
+                        "translation_key": "methode_calcul",
+                        "options": ["1", "2"],
                     }
                 }
             ),
@@ -152,8 +177,12 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                     }
                 }
             ),
+            # Le défaut est assaini avant d'être proposé : une entrée
+            # configurée par une version antérieure peut porter un
+            # horaire illisible, et ``vol.Optional`` réinjecte son
+            # défaut dès que le champ est omis à la soumission.
             vol.Optional(
-                "datePivot", default=self.options.get("datePivot", "13:00")
+                "datePivot", default=self._horaire("datePivot", "13:00")
             ): str,
             vol.Optional("pausePivot", default=self.options.get("pausePivot", 0)): int,
             vol.Optional(
@@ -196,6 +225,16 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                 _validate_choix_heure_hivernage(
                     user_input.get("choixHeureFiltrationHivernage")
                 )
+            )
+
+            # Même champ texte libre que l'horaire pivot de saison.
+            # Il n'est lu que si « Heure fixe » est choisi, mais il
+            # est enregistré dans tous les cas : une saisie fautive
+            # dormirait jusqu'au jour où ce choix est fait.
+            user_input["datePivotHivernage"] = _validate_heure(
+                user_input.get("datePivotHivernage"),
+                "datePivotHivernage",
+                self._horaire("datePivotHivernage", "06:00"),
             )
 
             self.options.update(user_input)
@@ -293,9 +332,12 @@ class PoolManagementOptionsFlowHandler(config_entries.OptionsFlow):
                             }
                         }
                     ),
+                    # Défaut assaini, comme l'horaire pivot de saison.
                     vol.Optional(
                         "datePivotHivernage",
-                        default=self.options.get("datePivotHivernage", "06:00"),
+                        default=self._horaire(
+                            "datePivotHivernage", "06:00"
+                        ),
                     ): str,
                     vol.Optional(
                         "temperatureSecurite",

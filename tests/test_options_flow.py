@@ -525,3 +525,168 @@ def test_les_trois_fichiers_de_libelles_portent_le_nouveau_champ():
         assert (
             "tempsDeFiltrationMinimum" not in etapes["filtration"]["data"]
         ), chemin
+
+
+# ---------------------------------------------------------------------------
+# Horaires pivot : du texte libre consommé par ``strptime``
+#
+# « Horaire pivot » et « Horaire pivot hivernage » sont des champs texte sans
+# validation. Leur valeur finit dans ``pivotTimestamp``, qui appelle
+# ``datetime.strptime(pivot, "%H:%M")`` : « 13h00 », « 25:00 » ou un champ
+# vidé lèvent une exception. Rien ne l'attrape — ni le flow, ni le cron qui
+# calcule la plage chaque minute. La saisie était donc acceptée, puis plus
+# aucune plage n'était calculée et le journal prenait une erreur par minute.
+# ---------------------------------------------------------------------------
+
+HORAIRES_INVALIDES = ("13h00", "25:00", "12:60", "", "   ", "1:00 PM", None, 13)
+
+
+async def test_un_horaire_pivot_invalide_est_remplace_a_la_soumission():
+    """Le menu Filtration remplace un horaire illisible par 13:00.
+
+    L'écran ne signale rien : la valeur est corrigée en silence, et
+    seul le journal garde la trace de la saisie refusée.
+    """
+
+    for valeur in HORAIRES_INVALIDES:
+        handler = _handler({})
+
+        await handler.async_step_filtration({"datePivot": valeur})
+
+        assert handler.options["datePivot"] == "13:00", f"valeur {valeur!r}"
+
+
+async def test_un_horaire_pivot_hivernage_invalide_est_remplace():
+    """Le menu Hivernage procède de même et garde 06:00.
+
+    L'horaire fixe d'hivernage ne sert que si « Heure fixe » est choisi,
+    mais il est enregistré dans tous les cas : une saisie fautive dort
+    jusqu'au jour où l'utilisateur quitte le lever du soleil.
+    """
+
+    for valeur in HORAIRES_INVALIDES:
+        handler = _handler({})
+
+        await handler.async_step_hivernage({"datePivotHivernage": valeur})
+
+        assert (
+            handler.options["datePivotHivernage"] == "06:00"
+        ), f"valeur {valeur!r}"
+
+
+async def test_un_horaire_valide_est_conserve_et_normalise():
+    """Les écritures acceptables sont ramenées au format attendu.
+
+    ``strptime`` lit « 9:05 » mais refuse « 13:00:00 », que rendrait un
+    selecteur d'heure de Home Assistant : la normalisation permet de
+    changer de champ un jour sans casser le calcul.
+    """
+
+    attendu = {
+        "08:30": "08:30",
+        "9:05": "09:05",
+        "13:00:00": "13:00",
+        " 07:15 ": "07:15",
+        "00:00": "00:00",
+        "23:59": "23:59",
+    }
+
+    for saisi, normalise in attendu.items():
+        handler = _handler({})
+
+        await handler.async_step_filtration({"datePivot": saisi})
+
+        assert handler.options["datePivot"] == normalise, f"saisi {saisi!r}"
+
+
+async def test_une_saisie_illisible_ne_perd_pas_l_horaire_en_place():
+    """Le repli est l'horaire déjà enregistré, pas le défaut du paquet.
+
+    Un utilisateur réglé sur 14:30 qui tape « 15h00 » garderait sinon une
+    plage centrée sur 13:00, qu'il n'a peut-être jamais choisie.
+    """
+
+    handler = _handler({"datePivot": "14:30"})
+
+    await handler.async_step_filtration({"datePivot": "15h00"})
+
+    assert handler.options["datePivot"] == "14:30"
+
+
+async def test_le_formulaire_ne_propose_jamais_un_horaire_illisible():
+    """Une entrée qui porte déjà un horaire fautif s'ouvre sur le défaut.
+
+    ``vol.Optional`` injecte son défaut quand le champ est omis : un défaut
+    invalide se réenregistrerait tel quel, écran après écran.
+    """
+
+    formulaire = await _schema("filtration", {"datePivot": "25:00"})
+    assert _defauts(formulaire)["datePivot"] == "13:00"
+
+    formulaire = await _schema("hivernage", {"datePivotHivernage": "nuit"})
+    assert _defauts(formulaire)["datePivotHivernage"] == "06:00"
+
+
+def test_le_controleur_assainit_un_horaire_deja_enregistre():
+    """Une entrée enregistrée avant cette version ne doit pas casser le cron.
+
+    La validation du formulaire ne protège que les saisies à venir ; une
+    valeur fautive déjà dans ``.storage`` n'est corrigée que par cette
+    lecture défensive.
+    """
+
+    controleur = _controleur({"datePivot": "13h00", "datePivotHivernage": ""})
+
+    assert controleur.datePivot == "13:00"
+    assert controleur.datePivotHivernage == "06:00"
+
+
+def test_le_calcul_de_la_plage_ne_leve_plus_sur_un_horaire_invalide():
+    """C'est le cron, chaque minute, qui payait l'absence de validation."""
+
+    from custom_components.pool_management.utils import pivotTimestamp
+
+    for valeur in HORAIRES_INVALIDES:
+        controleur = _controleur(
+            {"datePivot": valeur, "datePivotHivernage": valeur}
+        )
+
+        assert isinstance(
+            pivotTimestamp(controleur.datePivot, False), float
+        ), f"valeur {valeur!r}"
+        assert isinstance(
+            pivotTimestamp(controleur.datePivotHivernage, False), float
+        ), f"valeur {valeur!r}"
+
+
+# ---------------------------------------------------------------------------
+# « Méthode de calcul » : des libellés codés en dur, donc jamais traduits
+# ---------------------------------------------------------------------------
+
+
+async def test_la_methode_de_calcul_tire_ses_libelles_des_traductions():
+    """La liste doit porter une ``translation_key``, pas ses propres libellés.
+
+    Les deux choix étaient écrits en français dans le code : une interface
+    en anglais affichait « Courbe de température ».
+    """
+
+    _, selecteur = _champ(await _schema("filtration", {}), "methodeCalcul")
+
+    config = selecteur.config
+
+    assert config.get("translation_key") == "methode_calcul"
+    assert config["options"] == ["1", "2"]
+
+
+def test_les_trois_fichiers_portent_les_libelles_de_la_methode_de_calcul():
+    """Sans les trois fichiers, la liste afficherait ses valeurs brutes."""
+
+    for chemin in LIBELLES:
+        with open(chemin, encoding="utf-8") as fichier:
+            contenu = json.load(fichier)
+
+        options = contenu["selector"]["methode_calcul"]["options"]
+
+        assert set(options) == {"1", "2"}, chemin
+        assert all(libelle.strip() for libelle in options.values()), chemin
