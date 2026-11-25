@@ -29,6 +29,27 @@ STORAGE_KEY_PREFIX = "pool_management_data"
 
 VALID_DISTRIBUTIONS = (1, 2, 3, 4, 5)
 
+#: Bornes des réglages numériques : (minimum, maximum, défaut).
+#:
+#: Ces huit réglages se saisissaient dans un champ libre, où rien
+#: n'empêchait une durée négative ou un seuil hors-gel de 400 °C. Les
+#: maxima sont volontairement larges : il s'agit d'écarter l'absurde, pas
+#: de dicter une installation. Celui de la pause pivot vient du calcul
+#: lui-même, qui ramène déjà pause plus filtration à 24 h.
+#:
+#: La table est lue par le contrôleur comme par les formulaires : un écran
+#: ne peut plus annoncer un défaut que le contrôleur n'applique pas.
+BORNES_NOMBRES = {
+    "pausePivot": (0, 1440, 0),
+    "sondeLocalTechniquePause": (0, 240, 0),
+    "surpresseurDuree": (0, 120, 5),
+    "lavageDuree": (0, 60, 2),
+    "rincageDuree": (0, 60, 2),
+    "tempsDeFiltrationMinimumHivernage": (0, 24, 3),
+    "temperatureSecurite": (-20, 10, -2),
+    "temperatureHysteresis": (0.0, 5.0, 0.5),
+}
+
 #: Valeurs acceptées par « Heure de référence de la plage » en hivernage :
 #: 1 = lever du soleil, 2 = heure fixe (``datePivotHivernage``).
 VALID_CHOIX_HEURE_HIVERNAGE = (1, 2)
@@ -134,6 +155,72 @@ def _validate_heure(value: Any, name: str, default: str) -> str:
     return default
 
 
+def _validate_nombre(
+    value: Any, name: str, default: Any, minimum: Any, maximum: Any
+) -> Any:
+    """Return the value as a bounded number of the default's own type.
+
+    Une valeur illisible retombe sur le défaut ; une valeur hors bornes
+    est ramenée à la borne la plus proche plutôt qu'au défaut, pour que
+    l'intention de l'utilisateur soit préservée autant que possible : un
+    surpresseur réglé à 500 minutes devient 120, non 5.
+
+    Le type du défaut décide du type rendu. Le sélecteur « number » de
+    Home Assistant rend toujours un flottant, même avec un pas de 1 :
+    sans cette reprise, valider un écran remplacerait ``2`` par ``2.0``
+    dans les options, et ``frontend.py``, qui lit ces durées sans passer
+    par le contrôleur, afficherait « 2.0 ».
+    """
+
+    try:
+        nombre = float(value)
+        if isinstance(default, int):
+            nombre = round(nombre)
+    except (TypeError, ValueError, OverflowError):
+        _LOGGER.warning(
+            "%s illisible (%s), utilisation de la valeur par défaut %s",
+            name,
+            value,
+            default,
+        )
+        return default
+
+    borne = min(max(nombre, minimum), maximum)
+
+    if borne != nombre:
+        _LOGGER.warning(
+            "%s hors bornes (%s), ramené à %s",
+            name,
+            nombre,
+            borne,
+        )
+
+    return borne
+
+
+def _lire_nombre(config: dict, cle: str) -> Any:
+    """Lit un réglage numérique borné dans la configuration."""
+
+    minimum, maximum, defaut = BORNES_NOMBRES[cle]
+
+    return _validate_nombre(config.get(cle, defaut), cle, defaut, minimum, maximum)
+
+
+def _normaliser_nombres(user_input: dict, cles: tuple) -> None:
+    """Remet les nombres soumis par un formulaire dans leur type et leurs bornes.
+
+    Le sélecteur refuse déjà les valeurs hors bornes à l'écran ; ce qu'il
+    ne fait pas, c'est rendre un entier.
+    """
+
+    for cle in cles:
+        if cle in user_input:
+            minimum, maximum, defaut = BORNES_NOMBRES[cle]
+            user_input[cle] = _validate_nombre(
+                user_input[cle], cle, defaut, minimum, maximum
+            )
+
+
 class PoolController(
     ActivationMixin,
     ButtonMixin,
@@ -189,14 +276,14 @@ class PoolController(
         self.surpresseur = config.get("surpresseur")
 
         # réglages personnalisés
-        self.surpresseurDuree = config.get("surpresseurDuree", 5)
+        self.surpresseurDuree = _lire_nombre(config, "surpresseurDuree")
 
         self.disableMarcheForcee = config.get("disableMarcheForcee", False)
         self.methodeCalcul = int(config.get("methodeCalcul", 1))
         self.datePivot = _validate_heure(
             config.get("datePivot", "13:00"), "datePivot", "13:00"
         )
-        self.pausePivot = config.get("pausePivot", 0)
+        self.pausePivot = _lire_nombre(config, "pausePivot")
         self.distributionDatePivot = _validate_distribution(
             config.get("distributionDatePivot", 1), "distributionDatePivot", 1
         )
@@ -206,7 +293,9 @@ class PoolController(
         )
 
         self.sondeLocalTechnique = config.get("sondeLocalTechnique", False)
-        self.sondeLocalTechniquePause = config.get("sondeLocalTechniquePause", 0)
+        self.sondeLocalTechniquePause = _lire_nombre(
+            config, "sondeLocalTechniquePause"
+        )
         self.traitementHivernage = config.get("traitementHivernage", False)
         # Plancher de la plage d'hivernage. Le réglage s'est longtemps appelé
         # « tempsDeFiltrationMinimum » et siégeait dans le menu Filtration,
@@ -216,9 +305,18 @@ class PoolController(
         # reprise telle quelle : une installation qui avait porté son
         # plancher à 6 h garde un plancher de 6 h, le changement de nom ne
         # ramène personne à 3 h sans le dire.
-        self.tempsDeFiltrationMinimumHivernage = config.get(
+        minimum, maximum, defaut = BORNES_NOMBRES[
+            "tempsDeFiltrationMinimumHivernage"
+        ]
+        self.tempsDeFiltrationMinimumHivernage = _validate_nombre(
+            config.get(
+                "tempsDeFiltrationMinimumHivernage",
+                config.get("tempsDeFiltrationMinimum", defaut),
+            ),
             "tempsDeFiltrationMinimumHivernage",
-            config.get("tempsDeFiltrationMinimum", 3),
+            defaut,
+            minimum,
+            maximum,
         )
         self.distributionDatePivotHivernage = _validate_distribution(
             config.get("distributionDatePivotHivernage", 4),
@@ -233,12 +331,14 @@ class PoolController(
             "datePivotHivernage",
             "06:00",
         )
-        self.temperatureSecurite = config.get("temperatureSecurite", -2)
-        self.temperatureHysteresis = config.get("temperatureHysteresis", 0.5)
+        self.temperatureSecurite = _lire_nombre(config, "temperatureSecurite")
+        self.temperatureHysteresis = _lire_nombre(
+            config, "temperatureHysteresis"
+        )
         self.filtration5mn3h = config.get("filtration5mn3h", False)
 
-        self.lavageDuree = config.get("lavageDuree", 2)
-        self.rincageDuree = config.get("rincageDuree", 2)
+        self.lavageDuree = _lire_nombre(config, "lavageDuree")
+        self.rincageDuree = _lire_nombre(config, "rincageDuree")
 
     async def async_initialize(self) -> None:
         """Initialise PoolController by loading data from store."""

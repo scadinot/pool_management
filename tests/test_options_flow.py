@@ -17,6 +17,7 @@ import json
 import pytest
 import voluptuous as vol
 
+from custom_components.pool_management.controller import BORNES_NOMBRES
 from custom_components.pool_management.options_flow import (
     PoolManagementOptionsFlowHandler,
 )
@@ -690,3 +691,191 @@ def test_les_trois_fichiers_portent_les_libelles_de_la_methode_de_calcul():
 
         assert set(options) == {"1", "2"}, chemin
         assert all(libelle.strip() for libelle in options.values()), chemin
+
+
+# ---------------------------------------------------------------------------
+# Champs numériques : des entiers nus, donc sans bornes
+#
+# Huit réglages se saisissaient dans un champ libre : rien n'empêchait une
+# durée négative, un plancher de 99 h ou un seuil hors-gel de 400 °C. Les
+# coefficients d'ajustement, eux, passaient déjà par un sélecteur borné.
+#
+# Borner un champ déjà en service demande une précaution : ``vol.Optional``
+# réinjecte son défaut dès que le champ est omis à la soumission, et un
+# défaut hors bornes serait alors refusé par le sélecteur — l'écran
+# deviendrait impossible à valider, comme l'avait montré la liste
+# déroulante de l'hivernage. La valeur enregistrée est donc ramenée dans
+# ses bornes avant d'être proposée.
+# ---------------------------------------------------------------------------
+
+#: Les champs numériques bornés, par menu qui les expose.
+MENUS_NOMBRES = {
+    "filtration": ("pausePivot",),
+    "hivernage": (
+        "tempsDeFiltrationMinimumHivernage",
+        "temperatureSecurite",
+        "temperatureHysteresis",
+    ),
+    "avance": (
+        "sondeLocalTechniquePause",
+        "surpresseurDuree",
+        "lavageDuree",
+        "rincageDuree",
+    ),
+}
+
+
+async def test_les_champs_numeriques_portent_leurs_bornes():
+    """Chaque champ doit exposer un sélecteur borné, non un entier nu."""
+
+    for etape, cles in MENUS_NOMBRES.items():
+        schema = await _schema(etape, {})
+
+        for cle in cles:
+            _, validateur = _champ(schema, cle)
+
+            config = getattr(validateur, "config", None)
+
+            assert config is not None, f"{cle} : champ non borné"
+
+            minimum, maximum, _defaut = BORNES_NOMBRES[cle]
+
+            assert config["min"] == minimum, cle
+            assert config["max"] == maximum, cle
+
+
+def test_aucune_duree_ne_peut_etre_negative():
+    """Le défaut que cette correction visait : des durées négatives.
+
+    Les maxima restent larges — il s'agit d'écarter l'absurde, pas de
+    dicter une installation.
+    """
+
+    durees = (
+        "pausePivot",
+        "sondeLocalTechniquePause",
+        "surpresseurDuree",
+        "lavageDuree",
+        "rincageDuree",
+        "tempsDeFiltrationMinimumHivernage",
+    )
+
+    for cle in durees:
+        minimum, maximum, _defaut = BORNES_NOMBRES[cle]
+
+        assert minimum == 0, cle
+        assert maximum > 0, cle
+
+
+async def test_une_saisie_hors_bornes_est_refusee_par_le_formulaire():
+    """Contrairement aux horaires, le sélecteur refuse la valeur à l'écran.
+
+    C'est tout l'intérêt de borner le champ plutôt que de corriger après
+    coup : l'utilisateur voit son erreur au lieu de la découvrir au
+    journal.
+    """
+
+    schema = await _schema("avance", {})
+
+    with pytest.raises(vol.Invalid):
+        schema({"surpresseurDuree": -5})
+
+    with pytest.raises(vol.Invalid):
+        schema({"lavageDuree": 10000})
+
+
+async def test_une_valeur_deja_hors_bornes_laisse_l_ecran_validable():
+    """Une installation en place ne doit pas se retrouver bloquée.
+
+    ``vol.Optional`` réinjecte son défaut quand le champ est omis : un
+    défaut hors bornes serait refusé par le sélecteur, et l'écran ne
+    pourrait plus être enregistré du tout.
+    """
+
+    schema = await _schema("avance", {"surpresseurDuree": 500})
+
+    assert _defauts(schema)["surpresseurDuree"] == BORNES_NOMBRES["surpresseurDuree"][1]
+
+    schema({})
+
+
+def test_le_controleur_ramene_les_nombres_dans_leurs_bornes():
+    """Une valeur fautive déjà enregistrée est rattrapée à la relecture."""
+
+    controleur = _controleur(
+        {
+            "surpresseurDuree": -5,
+            "pausePivot": 10000,
+            "temperatureHysteresis": "abc",
+            "temperatureSecurite": -400,
+        }
+    )
+
+    assert controleur.surpresseurDuree == 0
+    assert controleur.pausePivot == BORNES_NOMBRES["pausePivot"][1]
+    assert controleur.temperatureHysteresis == 0.5
+    assert controleur.temperatureSecurite == BORNES_NOMBRES["temperatureSecurite"][0]
+
+
+def test_le_plancher_herite_de_l_ancienne_cle_reste_borne():
+    """La reprise de l'ancien nom passe par les mêmes bornes.
+
+    Une valeur plausible est conservée telle quelle ; une valeur absurde
+    héritée de l'ancien champ libre est ramenée au maximum.
+    """
+
+    controleur = _controleur({"tempsDeFiltrationMinimum": 6})
+
+    assert controleur.tempsDeFiltrationMinimumHivernage == 6
+
+    maximum = BORNES_NOMBRES["tempsDeFiltrationMinimumHivernage"][1]
+    controleur = _controleur({"tempsDeFiltrationMinimum": 99})
+
+    assert controleur.tempsDeFiltrationMinimumHivernage == maximum
+
+
+async def test_le_formulaire_et_le_controleur_partagent_les_memes_defauts():
+    """Un écran qui annoncerait un défaut non appliqué par le contrôleur mentirait.
+
+    Les deux lisent désormais la même table de bornes : l'écart n'est plus
+    possible par construction, et ce test le vérifie.
+    """
+
+    controleur = _controleur({})
+
+    for etape, cles in MENUS_NOMBRES.items():
+        defauts = _defauts(await _schema(etape, {}))
+
+        for cle in cles:
+            assert defauts[cle] == getattr(controleur, cle), cle
+
+
+async def test_valider_un_ecran_ne_transforme_pas_les_entiers_en_flottants():
+    """Le sélecteur « number » rend un flottant, même avec un pas de 1.
+
+    Sans reprise à la soumission, ``2`` deviendrait ``2.0`` dans les
+    options : ``frontend.py`` lit ces durées sans passer par le
+    contrôleur et afficherait « 2.0 », et le type stocké changerait à
+    chaque validation d'écran. L'hystérésis, elle, doit rester un
+    flottant.
+    """
+
+    handler = _handler({})
+    schema = await _schema("avance", {})
+
+    await handler.async_step_avance(schema({"lavageDuree": 3, "rincageDuree": 2}))
+
+    assert handler.options["lavageDuree"] == 3
+    assert isinstance(handler.options["lavageDuree"], int), handler.options["lavageDuree"]
+    assert isinstance(handler.options["rincageDuree"], int)
+    assert isinstance(handler.options["surpresseurDuree"], int)
+
+    handler = _handler({})
+    schema = await _schema("hivernage", {})
+
+    await handler.async_step_hivernage(schema({"temperatureHysteresis": 0.4}))
+
+    assert handler.options["temperatureHysteresis"] == 0.4
+    assert isinstance(handler.options["temperatureHysteresis"], float)
+    assert isinstance(handler.options["temperatureSecurite"], int)
+    assert isinstance(handler.options["tempsDeFiltrationMinimumHivernage"], int)

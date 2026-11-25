@@ -6,6 +6,22 @@ Le format est inspiré de [Keep a Changelog 1.1.0](https://keepachangelog.com/fr
 
 ## [Non publié]
 
+## [0.1.5] — 2026-11-25
+
+### Corrigé
+- **Huit réglages numériques se saisissaient sans la moindre borne.** « Pause pivot », « Pause avant relevé température », « Durée surpresseur », « Durée lavage », « Durée rinçage », « Durée minimale de la plage », « Température de sécurité » et « Hystérésis » étaient des champs libres : une durée négative, un plancher de 99 h ou un seuil hors-gel de 400 °C s'enregistraient sans rien signaler, alors que les coefficients d'ajustement, eux, passaient déjà par un sélecteur borné. Les huit passent désormais par un sélecteur `number` : une saisie hors bornes est refusée **à l'écran**, là où un horaire fautif n'était corrigé qu'en silence. Les maxima restent larges — il s'agit d'écarter l'absurde, pas de dicter une installation ; celui de la pause pivot vient du calcul lui-même, qui ramenait déjà pause plus filtration à 24 h.
+- **Valider un écran transformait les entiers en flottants.** Le sélecteur `number` de Home Assistant rend toujours un flottant, même avec un pas de 1 : sans reprise, une durée de lavage de `2` devenait `2.0` dans les options, et `frontend.py`, qui lit ces durées sans passer par le contrôleur, aurait affiché « 2.0 ». Les valeurs soumises sont ramenées au type de leur défaut.
+
+### Modifié
+- **Une valeur déjà enregistrée hors bornes est ramenée à la borne la plus proche**, au démarrage comme à l'ouverture de l'écran, avec un avertissement au journal. C'est le seul endroit de cette version où une installation change sans action de son propriétaire : un surpresseur réglé à 500 minutes tombera à 120. La borne la plus proche a été préférée au défaut du paquet, pour conserver l'intention — 120 plutôt que 5. Ce rattrapage est aussi ce qui garde l'écran utilisable : `vol.Optional` réinjecte son défaut dès que le champ est omis à la soumission, et un défaut hors bornes serait refusé par le sélecteur, rendant le menu impossible à enregistrer.
+- **Les bornes et les défauts tiennent désormais dans une seule table**, `BORNES_NOMBRES`, lue par le contrôleur comme par les formulaires. Un écran ne peut plus annoncer un défaut que le contrôleur n'applique pas, et un test le vérifie champ par champ.
+
+### Documentation
+- Les trois tableaux de réglages portent les bornes de chaque champ, et le README signale que `0` en durée de rinçage saute l'étape de rinçage — comportement qui existait sans être documenté.
+
+### Ajouté
+- Huit tests : bornes présentes sur les huit champs, aucune durée négative possible, saisie hors bornes refusée par le formulaire, valeur enregistrée hors bornes qui laisse l'écran validable, rattrapage à la relecture du contrôleur, plancher hérité de l'ancienne clé toujours borné, concordance des défauts entre formulaire et contrôleur, et types entiers préservés à la soumission.
+
 ## [0.1.4] — 2026-11-25
 
 ### Corrigé
